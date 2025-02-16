@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { ponder } from "ponder:registry";
-import { hourBuckets, orderHistory, orders, trades } from "ponder:schema";
+import { hourBuckets, orderBookTrades, orderHistory, orders, trades } from "ponder:schema";
 
 const orderStatus = [
     "OPEN",
@@ -69,6 +69,15 @@ ponder.on("OrderBook:OrderPlaced", async ({ event, context }) => {
 
 
 ponder.on("OrderBook:OrderMatched", async ({ event, context }) => {
+    await context.db.insert(orderBookTrades).values({
+        id: createHash('sha256').update(`${event.transaction.hash}-${event.args.user}-buy-${event.args.buyOrderId}-${event.args.sellOrderId}-${event.args.executionPrice}-${event.args.executedQuantity}`).digest('hex'),
+        price: BigInt(event.args.executionPrice),
+        quantity: BigInt(event.args.executedQuantity),
+        timestamp: Number(event.args.timestamp),
+        transactionId: event.transaction.hash,
+        side: event.args.side ? 'Sell' : 'Buy',
+    });
+
     const id = createHash('sha256')
         .update(`${event.transaction.hash}-${event.args.user}-buy-${event.args.buyOrderId}-${event.args.sellOrderId}-${event.args.executionPrice}-${event.args.executedQuantity}`)
         .digest('hex');

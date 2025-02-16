@@ -50,6 +50,22 @@ export const trades = onchainTable("trades", (t) => ({
   })
 );
 
+export const tradeRelations = relations(trades, ({ one }) => ({
+  order: one(orders, { fields: [trades.orderId], references: [orders.id] }),
+}));
+
+export const orderBookTrades = onchainTable("order_book_trades", (t) => ({
+  id: t.text().primaryKey(),
+  price: t.bigint(),
+  quantity: t.bigint(),
+  timestamp: t.integer(),
+  transactionId: t.text(),
+  side: t.varchar(),
+}),
+  (table) => ({
+    transactionIdx: index().on(table.transactionId),
+  }));
+
 export const hourBuckets = onchainTable("hour_buckets", (t) => ({
   id: t.integer().primaryKey(),
   open: t.real().notNull(),
