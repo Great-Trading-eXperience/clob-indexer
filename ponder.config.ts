@@ -20,6 +20,7 @@ export default createConfig({
       abi: OrderBookABI,
       network: "riseSepolia",
       address: process.env.CONTRACT_ADDRESS ? getAddress(process.env.CONTRACT_ADDRESS) : undefined,
+      startBlock: process.env.START_BLOCK as number | undefined,
     },
   },
 });
