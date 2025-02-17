@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { ponder } from "ponder:registry";
-import { hourBuckets, orderBookTrades, orderHistory, orders, trades } from "ponder:schema";
+import { dailyBuckets, hourBuckets, orderBookTrades, orderHistory, orders, trades } from "ponder:schema";
 
 const orderStatus = [
     "OPEN",
@@ -35,7 +35,7 @@ function updateCandlestickBucket(
             close: price,
             low: Math.min(Number(row.low), Number(price)),
             high: Math.max(Number(row.high), Number(price)),
-            average: (row.average * row.count + Number(price)) / (row.count + 1),
+            average: (Number(row.average) * Number(row.count) + Number(price)) / (Number(row.count) + 1),
             count: row.count + 1,
             timestamp: bucketId,
         }));
@@ -115,6 +115,9 @@ ponder.on("OrderBook:OrderMatched", async ({ event, context }) => {
 
     const hourlyBucketSeconds = 3600;
     await updateCandlestickBucket(hourBuckets, hourlyBucketSeconds, event.args.executionPrice, event.args.timestamp, context);
+
+    const dailyBucketSeconds = 86400;
+    updateCandlestickBucket(dailyBuckets, dailyBucketSeconds, event.args.executionPrice, event.args.timestamp, context);
 });
 
 ponder.on("OrderBook:OrderCancelled", async ({ event, context }) => {
