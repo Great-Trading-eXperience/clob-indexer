@@ -25,11 +25,10 @@ function updateCandlestickBucket(
 	context: any,
 	event: any
 ) {
+	const timestampId = Math.floor(timestamp / intervalInSeconds) * intervalInSeconds;
 	const bucketId = createHash("sha256")
 		.update(
-			`${event.log.address!}-${
-				Math.floor(timestamp / intervalInSeconds) * intervalInSeconds
-			}`
+			`${event.log.address!}-${timestampId}`
 		)
 		.digest("hex");
 
@@ -43,7 +42,7 @@ function updateCandlestickBucket(
 			high: price,
 			average: price,
 			count: 1,
-			timestamp: bucketId,
+			timestamp: timestampId,
 			poolId: event.log.address!,
 		})
 		.onConflictDoUpdate((row: any) => ({
@@ -54,7 +53,7 @@ function updateCandlestickBucket(
 				(Number(row.average) * Number(row.count) + Number(price)) /
 				(Number(row.count) + 1),
 			count: row.count + 1,
-			timestamp: bucketId,
+			timestamp: timestampId,
 		}));
 }
 

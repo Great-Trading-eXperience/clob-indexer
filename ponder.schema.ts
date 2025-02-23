@@ -134,6 +134,7 @@ export const hourBuckets = onchainTable("hour_buckets", (t) => ({
 	average: t.real().notNull(),
 	count: t.integer().notNull(),
 	poolId: t.hex().notNull(),
+	timestamp: t.integer().notNull(),
 }));
 
 export const dailyBuckets = onchainTable("daily_buckets", (t) => ({
@@ -145,6 +146,7 @@ export const dailyBuckets = onchainTable("daily_buckets", (t) => ({
 	average: t.real().notNull(),
 	count: t.integer().notNull(),
 	poolId: t.hex().notNull(),
+	timestamp: t.integer().notNull(),
 }));
 
 export const balances = onchainTable(
