@@ -54,8 +54,6 @@ function updateCandlestickBucket(
 }
 
 ponder.on("OrderBook:OrderPlaced" as any, async ({ event, context }: any) => {
-	// console.log("Order Placed");
-
 	await context.db
 		.insert(orders)
 		.values({

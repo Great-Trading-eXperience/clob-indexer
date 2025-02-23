@@ -10,6 +10,7 @@ export const pools = onchainTable(
 		quoteCurrency: t.hex().notNull(),
 		lotSize: t.bigint().notNull(),
 		maxOrderAmount: t.bigint().notNull(),
+		timestamp: t.integer(),
 	}),
 	(table: any) => ({
 		coinIdx: index().on(table.coin),
