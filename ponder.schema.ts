@@ -10,6 +10,7 @@ export const pools = onchainTable(
 		quoteCurrency: t.hex().notNull(),
 		lotSize: t.bigint().notNull(),
 		maxOrderAmount: t.bigint().notNull(),
+		timestamp: t.integer(),
 	}),
 	(table: any) => ({
 		coinIdx: index().on(table.coin),
@@ -19,7 +20,9 @@ export const pools = onchainTable(
 export const orders = onchainTable(
 	"orders",
 	(t: any) => ({
-		id: t.bigint().primaryKey(),
+		id: t.text().primaryKey(),
+		poolId: t.hex().notNull(),
+		orderId: t.bigint().notNull(),
 		user: t.hex(),
 		// coin: t.varchar(),
 		side: t.varchar(),
@@ -30,9 +33,9 @@ export const orders = onchainTable(
 		type: t.varchar(),
 		status: t.varchar(),
 		expiry: t.integer(),
-		poolId: t.hex().notNull(),
 	}),
 	(table: any) => ({
+		orderIdx: index().on(table.orderId),
 		userIdx: index().on(table.user),
 		sideIdx: index().on(table.side),
 		statusIdx: index().on(table.status),
@@ -45,11 +48,11 @@ export const orderHistory = onchainTable(
 	(t: any) => ({
 		id: t.text().primaryKey(),
 		// coin: t.varchar(),
+		poolId: t.hex().notNull(),
 		orderId: t.bigint(),
 		timestamp: t.integer(),
 		filled: t.bigint(),
 		status: t.varchar(),
-		poolId: t.hex().notNull(),
 	}),
 	(table: any) => ({
 		orderIdx: index().on(table.orderId),
@@ -85,11 +88,11 @@ export const trades = onchainTable(
 	(t) => ({
 		id: t.text().primaryKey(),
 		transactionId: t.text(),
+		poolId: t.hex().notNull(),
 		orderId: t.bigint(),
 		price: t.bigint(),
 		quantity: t.bigint(),
 		timestamp: t.integer(),
-		poolId: t.hex().notNull(),
 	}),
 	(table) => ({
 		transactionIdx: index().on(table.transactionId),
@@ -123,7 +126,7 @@ export const orderBookTrades = onchainTable(
 );
 
 export const hourBuckets = onchainTable("hour_buckets", (t) => ({
-	id: t.integer().primaryKey(),
+	id: t.text().primaryKey(),
 	open: t.real().notNull(),
 	close: t.real().notNull(),
 	low: t.real().notNull(),
@@ -131,10 +134,11 @@ export const hourBuckets = onchainTable("hour_buckets", (t) => ({
 	average: t.real().notNull(),
 	count: t.integer().notNull(),
 	poolId: t.hex().notNull(),
+	timestamp: t.integer().notNull(),
 }));
 
 export const dailyBuckets = onchainTable("daily_buckets", (t) => ({
-	id: t.integer().primaryKey(),
+	id: t.text().primaryKey(),
 	open: t.real().notNull(),
 	close: t.real().notNull(),
 	low: t.real().notNull(),
@@ -142,6 +146,7 @@ export const dailyBuckets = onchainTable("daily_buckets", (t) => ({
 	average: t.real().notNull(),
 	count: t.integer().notNull(),
 	poolId: t.hex().notNull(),
+	timestamp: t.integer().notNull(),
 }));
 
 export const balances = onchainTable(
