@@ -148,6 +148,8 @@ export const balances = onchainTable(
 	"balances",
 	(t) => ({
 		user: t.hex().primaryKey(),
+		name: t.varchar(),
+		symbol: t.varchar(),
 		currency: t.hex(),
 		amount: t.bigint(),
 		lockedAmount: t.bigint(),

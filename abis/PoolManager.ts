@@ -8,58 +8,41 @@ export const PoolManagerABI: any[] = [
 				internalType: "address",
 			},
 			{
-				name: "_feeReceiver",
+				name: "_balanceManager",
 				type: "address",
 				internalType: "address",
-			},
-			{
-				name: "_feeMaker",
-				type: "uint256",
-				internalType: "uint256",
-			},
-			{
-				name: "_feeTaker",
-				type: "uint256",
-				internalType: "uint256",
 			},
 		],
 		stateMutability: "nonpayable",
 	},
 	{
 		type: "function",
-		name: "balanceOf",
+		name: "createPool",
 		inputs: [
 			{
-				name: "owner",
-				type: "address",
-				internalType: "address",
+				name: "key",
+				type: "tuple",
+				internalType: "struct PoolKey",
+				components: [
+					{
+						name: "baseCurrency",
+						type: "address",
+						internalType: "Currency",
+					},
+					{
+						name: "quoteCurrency",
+						type: "address",
+						internalType: "Currency",
+					},
+				],
 			},
 			{
-				name: "id",
+				name: "_lotSize",
 				type: "uint256",
 				internalType: "uint256",
 			},
-		],
-		outputs: [
 			{
-				name: "balance",
-				type: "uint256",
-				internalType: "uint256",
-			},
-		],
-		stateMutability: "view",
-	},
-	{
-		type: "function",
-		name: "deposit",
-		inputs: [
-			{
-				name: "currency",
-				type: "address",
-				internalType: "Currency",
-			},
-			{
-				name: "amount",
+				name: "_maxOrderAmount",
 				type: "uint256",
 				internalType: "uint256",
 			},
@@ -69,163 +52,92 @@ export const PoolManagerABI: any[] = [
 	},
 	{
 		type: "function",
-		name: "deposit",
+		name: "getPool",
 		inputs: [
 			{
-				name: "currency",
-				type: "address",
-				internalType: "Currency",
-			},
-			{
-				name: "amount",
-				type: "uint256",
-				internalType: "uint256",
-			},
-			{
-				name: "user",
-				type: "address",
-				internalType: "address",
+				name: "key",
+				type: "tuple",
+				internalType: "struct PoolKey",
+				components: [
+					{
+						name: "baseCurrency",
+						type: "address",
+						internalType: "Currency",
+					},
+					{
+						name: "quoteCurrency",
+						type: "address",
+						internalType: "Currency",
+					},
+				],
 			},
 		],
-		outputs: [],
-		stateMutability: "nonpayable",
-	},
-	{
-		type: "function",
-		name: "feeMaker",
-		inputs: [],
 		outputs: [
 			{
 				name: "",
-				type: "uint256",
-				internalType: "uint256",
+				type: "tuple",
+				internalType: "struct IPoolManager.Pool",
+				components: [
+					{
+						name: "maxOrderAmount",
+						type: "uint256",
+						internalType: "uint256",
+					},
+					{
+						name: "lotSize",
+						type: "uint256",
+						internalType: "uint256",
+					},
+					{
+						name: "baseCurrency",
+						type: "address",
+						internalType: "Currency",
+					},
+					{
+						name: "quoteCurrency",
+						type: "address",
+						internalType: "Currency",
+					},
+					{
+						name: "orderBook",
+						type: "address",
+						internalType: "contract IOrderBook",
+					},
+				],
 			},
 		],
 		stateMutability: "view",
 	},
 	{
 		type: "function",
-		name: "feeTaker",
-		inputs: [],
-		outputs: [
-			{
-				name: "",
-				type: "uint256",
-				internalType: "uint256",
-			},
-		],
-		stateMutability: "view",
-	},
-	{
-		type: "function",
-		name: "getBalance",
+		name: "getPoolId",
 		inputs: [
 			{
-				name: "user",
-				type: "address",
-				internalType: "address",
-			},
-			{
-				name: "currency",
-				type: "address",
-				internalType: "Currency",
+				name: "key",
+				type: "tuple",
+				internalType: "struct PoolKey",
+				components: [
+					{
+						name: "baseCurrency",
+						type: "address",
+						internalType: "Currency",
+					},
+					{
+						name: "quoteCurrency",
+						type: "address",
+						internalType: "Currency",
+					},
+				],
 			},
 		],
 		outputs: [
 			{
 				name: "",
-				type: "uint256",
-				internalType: "uint256",
+				type: "bytes32",
+				internalType: "PoolId",
 			},
 		],
-		stateMutability: "view",
-	},
-	{
-		type: "function",
-		name: "getLockedBalance",
-		inputs: [
-			{
-				name: "user",
-				type: "address",
-				internalType: "address",
-			},
-			{
-				name: "operator",
-				type: "address",
-				internalType: "address",
-			},
-			{
-				name: "currency",
-				type: "address",
-				internalType: "Currency",
-			},
-		],
-		outputs: [
-			{
-				name: "",
-				type: "uint256",
-				internalType: "uint256",
-			},
-		],
-		stateMutability: "view",
-	},
-	{
-		type: "function",
-		name: "lock",
-		inputs: [
-			{
-				name: "user",
-				type: "address",
-				internalType: "address",
-			},
-			{
-				name: "currency",
-				type: "address",
-				internalType: "Currency",
-			},
-			{
-				name: "amount",
-				type: "uint256",
-				internalType: "uint256",
-			},
-		],
-		outputs: [
-			{
-				name: "",
-				type: "bool",
-				internalType: "bool",
-			},
-		],
-		stateMutability: "nonpayable",
-	},
-	{
-		type: "function",
-		name: "lockedBalanceOf",
-		inputs: [
-			{
-				name: "owner",
-				type: "address",
-				internalType: "address",
-			},
-			{
-				name: "operator",
-				type: "address",
-				internalType: "address",
-			},
-			{
-				name: "id",
-				type: "uint256",
-				internalType: "uint256",
-			},
-		],
-		outputs: [
-			{
-				name: "amount",
-				type: "uint256",
-				internalType: "uint256",
-			},
-		],
-		stateMutability: "view",
+		stateMutability: "pure",
 	},
 	{
 		type: "function",
@@ -242,6 +154,45 @@ export const PoolManagerABI: any[] = [
 	},
 	{
 		type: "function",
+		name: "pools",
+		inputs: [
+			{
+				name: "",
+				type: "bytes32",
+				internalType: "PoolId",
+			},
+		],
+		outputs: [
+			{
+				name: "maxOrderAmount",
+				type: "uint256",
+				internalType: "uint256",
+			},
+			{
+				name: "lotSize",
+				type: "uint256",
+				internalType: "uint256",
+			},
+			{
+				name: "baseCurrency",
+				type: "address",
+				internalType: "Currency",
+			},
+			{
+				name: "quoteCurrency",
+				type: "address",
+				internalType: "Currency",
+			},
+			{
+				name: "orderBook",
+				type: "address",
+				internalType: "contract IOrderBook",
+			},
+		],
+		stateMutability: "view",
+	},
+	{
+		type: "function",
 		name: "renounceOwnership",
 		inputs: [],
 		outputs: [],
@@ -249,106 +200,15 @@ export const PoolManagerABI: any[] = [
 	},
 	{
 		type: "function",
-		name: "setAuthorizedOperator",
+		name: "setRouter",
 		inputs: [
 			{
-				name: "operator",
+				name: "_router",
 				type: "address",
 				internalType: "address",
-			},
-			{
-				name: "approved",
-				type: "bool",
-				internalType: "bool",
 			},
 		],
 		outputs: [],
-		stateMutability: "nonpayable",
-	},
-	{
-		type: "function",
-		name: "setFees",
-		inputs: [
-			{
-				name: "_feeMaker",
-				type: "uint256",
-				internalType: "uint256",
-			},
-			{
-				name: "_feeTaker",
-				type: "uint256",
-				internalType: "uint256",
-			},
-		],
-		outputs: [],
-		stateMutability: "nonpayable",
-	},
-	{
-		type: "function",
-		name: "transferFrom",
-		inputs: [
-			{
-				name: "sender",
-				type: "address",
-				internalType: "address",
-			},
-			{
-				name: "receiver",
-				type: "address",
-				internalType: "address",
-			},
-			{
-				name: "currency",
-				type: "address",
-				internalType: "Currency",
-			},
-			{
-				name: "amount",
-				type: "uint256",
-				internalType: "uint256",
-			},
-		],
-		outputs: [
-			{
-				name: "",
-				type: "bool",
-				internalType: "bool",
-			},
-		],
-		stateMutability: "nonpayable",
-	},
-	{
-		type: "function",
-		name: "transferLockedFrom",
-		inputs: [
-			{
-				name: "sender",
-				type: "address",
-				internalType: "address",
-			},
-			{
-				name: "receiver",
-				type: "address",
-				internalType: "address",
-			},
-			{
-				name: "currency",
-				type: "address",
-				internalType: "Currency",
-			},
-			{
-				name: "amount",
-				type: "uint256",
-				internalType: "uint256",
-			},
-		],
-		outputs: [
-			{
-				name: "",
-				type: "bool",
-				internalType: "bool",
-			},
-		],
 		stateMutability: "nonpayable",
 	},
 	{
@@ -363,120 +223,6 @@ export const PoolManagerABI: any[] = [
 		],
 		outputs: [],
 		stateMutability: "nonpayable",
-	},
-	{
-		type: "function",
-		name: "unlock",
-		inputs: [
-			{
-				name: "user",
-				type: "address",
-				internalType: "address",
-			},
-			{
-				name: "currency",
-				type: "address",
-				internalType: "Currency",
-			},
-			{
-				name: "amount",
-				type: "uint256",
-				internalType: "uint256",
-			},
-		],
-		outputs: [
-			{
-				name: "",
-				type: "bool",
-				internalType: "bool",
-			},
-		],
-		stateMutability: "nonpayable",
-	},
-	{
-		type: "function",
-		name: "withdraw",
-		inputs: [
-			{
-				name: "currency",
-				type: "address",
-				internalType: "Currency",
-			},
-			{
-				name: "amount",
-				type: "uint256",
-				internalType: "uint256",
-			},
-			{
-				name: "user",
-				type: "address",
-				internalType: "address",
-			},
-		],
-		outputs: [],
-		stateMutability: "nonpayable",
-	},
-	{
-		type: "function",
-		name: "withdraw",
-		inputs: [
-			{
-				name: "currency",
-				type: "address",
-				internalType: "Currency",
-			},
-			{
-				name: "amount",
-				type: "uint256",
-				internalType: "uint256",
-			},
-		],
-		outputs: [],
-		stateMutability: "nonpayable",
-	},
-	{
-		type: "event",
-		name: "Deposit",
-		inputs: [
-			{
-				name: "user",
-				type: "address",
-				indexed: true,
-				internalType: "address",
-			},
-			{
-				name: "id",
-				type: "uint256",
-				indexed: true,
-				internalType: "uint256",
-			},
-			{
-				name: "amount",
-				type: "uint256",
-				indexed: false,
-				internalType: "uint256",
-			},
-		],
-		anonymous: false,
-	},
-	{
-		type: "event",
-		name: "OperatorSet",
-		inputs: [
-			{
-				name: "operator",
-				type: "address",
-				indexed: true,
-				internalType: "address",
-			},
-			{
-				name: "approved",
-				type: "bool",
-				indexed: false,
-				internalType: "bool",
-			},
-		],
-		anonymous: false,
 	},
 	{
 		type: "event",
@@ -499,59 +245,40 @@ export const PoolManagerABI: any[] = [
 	},
 	{
 		type: "event",
-		name: "TransferFrom",
+		name: "PoolCreated",
 		inputs: [
 			{
-				name: "operator",
-				type: "address",
-				indexed: true,
-				internalType: "address",
-			},
-			{
-				name: "sender",
-				type: "address",
-				indexed: true,
-				internalType: "address",
-			},
-			{
-				name: "receiver",
-				type: "address",
-				indexed: true,
-				internalType: "address",
-			},
-			{
 				name: "id",
+				type: "bytes32",
+				indexed: true,
+				internalType: "PoolId",
+			},
+			{
+				name: "orderBook",
+				type: "address",
+				indexed: true,
+				internalType: "address",
+			},
+			{
+				name: "baseCurrency",
+				type: "address",
+				indexed: false,
+				internalType: "Currency",
+			},
+			{
+				name: "quoteCurrency",
+				type: "address",
+				indexed: false,
+				internalType: "Currency",
+			},
+			{
+				name: "lotSize",
 				type: "uint256",
 				indexed: false,
 				internalType: "uint256",
 			},
 			{
-				name: "amount",
-				type: "uint256",
-				indexed: false,
-				internalType: "uint256",
-			},
-		],
-		anonymous: false,
-	},
-	{
-		type: "event",
-		name: "Withdrawal",
-		inputs: [
-			{
-				name: "user",
-				type: "address",
-				indexed: true,
-				internalType: "address",
-			},
-			{
-				name: "id",
-				type: "uint256",
-				indexed: true,
-				internalType: "uint256",
-			},
-			{
-				name: "amount",
+				name: "maxOrderAmount",
 				type: "uint256",
 				indexed: false,
 				internalType: "uint256",
@@ -561,38 +288,7 @@ export const PoolManagerABI: any[] = [
 	},
 	{
 		type: "error",
-		name: "ERC20TransferFailed",
-		inputs: [],
-	},
-	{
-		type: "error",
-		name: "InsufficientBalance",
-		inputs: [
-			{
-				name: "user",
-				type: "address",
-				internalType: "address",
-			},
-			{
-				name: "id",
-				type: "uint256",
-				internalType: "uint256",
-			},
-			{
-				name: "want",
-				type: "uint256",
-				internalType: "uint256",
-			},
-			{
-				name: "have",
-				type: "uint256",
-				internalType: "uint256",
-			},
-		],
-	},
-	{
-		type: "error",
-		name: "NativeTransferFailed",
+		name: "InvalidRouter",
 		inputs: [],
 	},
 	{
@@ -616,47 +312,5 @@ export const PoolManagerABI: any[] = [
 				internalType: "address",
 			},
 		],
-	},
-	{
-		type: "error",
-		name: "ReentrancyGuardReentrantCall",
-		inputs: [],
-	},
-	{
-		type: "error",
-		name: "TransferError",
-		inputs: [
-			{
-				name: "user",
-				type: "address",
-				internalType: "address",
-			},
-			{
-				name: "currency",
-				type: "address",
-				internalType: "Currency",
-			},
-			{
-				name: "amount",
-				type: "uint256",
-				internalType: "uint256",
-			},
-		],
-	},
-	{
-		type: "error",
-		name: "UnauthorizedOperator",
-		inputs: [
-			{
-				name: "operator",
-				type: "address",
-				internalType: "address",
-			},
-		],
-	},
-	{
-		type: "error",
-		name: "ZeroAmount",
-		inputs: [],
 	},
 ] as const;
