@@ -1,7 +1,9 @@
 import { createConfig, factory } from "ponder";
 import { getAddress, http, parseAbiItem } from "viem";
 import { OrderBookABI } from "./abis/OrderBook";
-// import { deployedContracts } from "../clob-dex/deployed-contracts/deployedContracts";
+import { BalanceManagerABI } from "./abis/BalanceManager";
+import { GTXRouterABI } from "./abis/GTXRouter";
+import { PoolManagerABI } from "./abis/PoolManager";
 import { deployedContracts } from "./contracts/deployedContracts";
 
 const chainId = 11155931;
@@ -15,43 +17,41 @@ const contracts: any = {
 		network: "riseSepolia",
 		address: factory({
 			address:
-				getAddress(
-					deployedContracts[chainId]?.["PoolManager"]?.address || ""
-				) || default_address,
+				getAddress(process.env.POOLMANAGER_CONTRACT_ADDRESS as `0x${string}`) ||
+				default_address,
 			event: parseAbiItem(
 				"event PoolCreated(bytes32 indexed id, address indexed orderBook, address baseCurrency, address quoteCurrency, uint256 lotSize, uint256 maxOrderAmount)"
 			),
 			parameter: "orderBook",
 		}),
-		// address: [
-		// 	"0x9231e74e817fad37a62d06790db5f913840544da",
-		// 	"0x9d4fb92a3eb51e23586a661dbd926d5ee0e7eaef",
-		// 	"0x4d744292de49297f33dff8063c4a3876de7aaade",
-		// 	"0x6759df93ba4382d7832203007116894a33ec07e3",
-		// ],
 		startBlock: process.env.START_BLOCK as number | undefined,
 	},
 	PoolManager: {
-		abi: (deployedContracts[chainId]?.["PoolManager"]?.abi as any[]) || [],
+		abi: PoolManagerABI || [],
 		network: "riseSepolia",
-		address:
-			deployedContracts[chainId]?.["PoolManager"]?.address || default_address,
-		startBlock: process.env.START_BLOCK as number | undefined,
+		address: getAddress(
+			(process.env.POOLMANAGER_CONTRACT_ADDRESS as `0x${string}`) ||
+				default_address
+		),
+		startBlock: Number(process.env.START_BLOCK) || undefined,
 	},
 	BalanceManager: {
-		abi: deployedContracts[chainId]?.["BalanceManager"]?.abi || [],
+		abi: BalanceManagerABI || [],
 		network: "riseSepolia",
-		address:
-			deployedContracts[chainId]?.["BalanceManager"]?.address ||
-			default_address,
-		startBlock: process.env.START_BLOCK as number | undefined,
+		address: getAddress(
+			(process.env.BALANCEMANAGER_CONTRACT_ADDRESS as `0x${string}`) ||
+				default_address
+		),
+		startBlock: Number(process.env.START_BLOCK) || undefined,
 	},
 	GTXRouter: {
-		abi: deployedContracts[chainId]?.["GTXRouter"]?.abi || [],
+		abi: GTXRouterABI || [],
 		network: "riseSepolia",
-		address:
-			deployedContracts[chainId]?.["GTXRouter"]?.address || default_address,
-		startBlock: process.env.START_BLOCK as number | undefined,
+		address: getAddress(
+			(process.env.GTXROUTER_CONTRACT_ADDRESS as `0x${string}`) ||
+				default_address
+		),
+		startBlock: Number(process.env.START_BLOCK) || undefined,
 	},
 };
 
