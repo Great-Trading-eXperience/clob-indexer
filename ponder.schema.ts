@@ -125,29 +125,24 @@ export const orderBookTrades = onchainTable(
 	})
 );
 
-export const hourBuckets = onchainTable("hour_buckets", (t) => ({
-	id: t.text().primaryKey(),
-	open: t.real().notNull(),
-	close: t.real().notNull(),
-	low: t.real().notNull(),
-	high: t.real().notNull(),
-	average: t.real().notNull(),
-	count: t.integer().notNull(),
-	poolId: t.hex().notNull(),
-	timestamp: t.integer().notNull(),
-}));
+const createBucketTable = (tableName: string) =>
+	onchainTable(tableName, (t) => ({
+		id: t.text().primaryKey(),
+		open: t.real().notNull(),
+		close: t.real().notNull(),
+		low: t.real().notNull(),
+		high: t.real().notNull(),
+		average: t.real().notNull(),
+		count: t.integer().notNull(),
+		poolId: t.hex().notNull(),
+		timestamp: t.integer().notNull(),
+	}));
 
-export const dailyBuckets = onchainTable("daily_buckets", (t) => ({
-	id: t.text().primaryKey(),
-	open: t.real().notNull(),
-	close: t.real().notNull(),
-	low: t.real().notNull(),
-	high: t.real().notNull(),
-	average: t.real().notNull(),
-	count: t.integer().notNull(),
-	poolId: t.hex().notNull(),
-	timestamp: t.integer().notNull(),
-}));
+export const minuteBuckets = createBucketTable("minute_buckets");
+export const fiveMinuteBuckets = createBucketTable("five_minute_buckets");
+export const thirtyMinuteBuckets = createBucketTable("thirty_minute_buckets");
+export const hourBuckets = createBucketTable("hour_buckets");
+export const dailyBuckets = createBucketTable("daily_buckets");
 
 export const balances = onchainTable(
 	"balances",

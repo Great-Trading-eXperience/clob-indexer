@@ -2,12 +2,15 @@ import { createHash } from "crypto";
 import { ponder } from "ponder:registry";
 import {
 	dailyBuckets,
+	fiveMinuteBuckets,
 	hourBuckets,
 	orderBookTrades,
 	orderHistory,
 	orders,
+	thirtyMinuteBuckets,
 	trades,
 } from "ponder:schema";
+import { minuteBuckets } from "../ponder.schema";
 
 const orderStatus = [
 	"OPEN",
@@ -170,25 +173,32 @@ ponder.on("OrderBook:OrderMatched" as any, async ({ event, context }: any) => {
 				: "PARTIALLY_FILLED",
 	}));
 
-	const hourlyBucketSeconds = 3600;
-	await updateCandlestickBucket(
-		hourBuckets,
-		hourlyBucketSeconds,
-		event.args.executionPrice,
-		event.args.timestamp,
-		context,
-		event
-	);
+	const intervals = {
+		minute: 60,
+		fiveMinutes: 300,
+		thirtyMinutes: 1800,
+		hour: 3600,
+		day: 86400
+	};
 
-	const dailyBucketSeconds = 86400;
-	updateCandlestickBucket(
-		dailyBuckets,
-		dailyBucketSeconds,
-		event.args.executionPrice,
-		event.args.timestamp,
-		context,
-		event
-	);
+	for (const [table, seconds] of [
+		[minuteBuckets, intervals.minute],
+		[fiveMinuteBuckets, intervals.fiveMinutes],
+		[thirtyMinuteBuckets, intervals.thirtyMinutes],
+		[hourBuckets, intervals.hour],
+		[dailyBuckets, intervals.day]
+	] as const) {
+		await updateCandlestickBucket(
+			table,
+			seconds,
+			event.args.executionPrice,
+			event.args.timestamp,
+			context,
+			event
+		);
+	}
+
+
 });
 
 ponder.on(
