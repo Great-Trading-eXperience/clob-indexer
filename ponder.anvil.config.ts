@@ -1,8 +1,8 @@
-import { createConfig } from "ponder";
-import { getAddress, http } from "viem";
+import { createConfig, factory } from "ponder";
+import { getAddress, http, parseAbiItem } from "viem";
 import deployed from "../clob-dex/broadcast/Deploy.s.sol/31337/run-latest.json";
-import { OrderBookABI } from "./abis/OrderBook";
 import { deployedContracts } from "../clob-dex/deployed-contracts/deployedContracts";
+import { OrderBookABI } from "./abis/OrderBook";
 
 const default_address = getAddress(
 	"0x0000000000000000000000000000000000000000"
@@ -19,19 +19,21 @@ const transactions = deployed.transactions.filter(
 			tx.function === "createPool((address,address),uint256,uint256)")
 );
 
-const address =
-	transactions.find(
-		(tx) =>
-			tx.transactionType === "CALL" &&
-			tx.contractName === "PoolManager" &&
-			tx.function === "createPool((address,address),uint256,uint256)"
-	)?.contractAddress || default_address;
 
 const contracts: any = {
 	OrderBook: {
 		abi: OrderBookABI,
 		network: "anvil",
-		address: address,
+		address: factory({
+			address:
+				getAddress(
+					deployedContracts["31337"]?.["PoolManager"]?.address || ""
+				) || default_address,
+			event: parseAbiItem(
+				"event PoolCreated(bytes32 indexed id, address indexed orderBook, address baseCurrency, address quoteCurrency, uint256 lotSize, uint256 maxOrderAmount)"
+			),
+			parameter: "orderBook",
+		}),
 	},
 	PoolManager: {
 		abi: deployedContracts["31337"]?.["PoolManager"]?.abi || [],
