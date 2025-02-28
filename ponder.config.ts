@@ -1,10 +1,9 @@
 import { createConfig, factory } from "ponder";
 import { getAddress, http, parseAbiItem } from "viem";
-import { OrderBookABI } from "./abis/OrderBook";
 import { BalanceManagerABI } from "./abis/BalanceManager";
 import { GTXRouterABI } from "./abis/GTXRouter";
+import { OrderBookABI } from "./abis/OrderBook";
 import { PoolManagerABI } from "./abis/PoolManager";
-import { deployedContracts } from "./contracts/deployedContracts";
 
 const chainId = 11155931;
 const default_address = getAddress(
@@ -24,14 +23,14 @@ const contracts: any = {
 			),
 			parameter: "orderBook",
 		}),
-		startBlock: process.env.START_BLOCK as number | undefined,
+		startBlock: process.env.START_BLOCK_ORDER_BOOK as number | undefined,
 	},
 	PoolManager: {
 		abi: PoolManagerABI || [],
 		network: "riseSepolia",
 		address: getAddress(
 			(process.env.POOLMANAGER_CONTRACT_ADDRESS as `0x${string}`) ||
-				default_address
+			default_address
 		),
 		startBlock: Number(process.env.START_BLOCK) || undefined,
 	},
@@ -40,7 +39,7 @@ const contracts: any = {
 		network: "riseSepolia",
 		address: getAddress(
 			(process.env.BALANCEMANAGER_CONTRACT_ADDRESS as `0x${string}`) ||
-				default_address
+			default_address
 		),
 		startBlock: Number(process.env.START_BLOCK) || undefined,
 	},
@@ -49,7 +48,7 @@ const contracts: any = {
 		network: "riseSepolia",
 		address: getAddress(
 			(process.env.GTXROUTER_CONTRACT_ADDRESS as `0x${string}`) ||
-				default_address
+			default_address
 		),
 		startBlock: Number(process.env.START_BLOCK) || undefined,
 	},
