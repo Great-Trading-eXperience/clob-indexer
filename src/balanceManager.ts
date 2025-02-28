@@ -33,6 +33,9 @@ ponder.on("BalanceManager:Deposit" as any, async ({ event, context }: any) => {
 		})
 		.onConflictDoUpdate((row: any) => ({
 			amount: row.amount + BigInt(event.args.amount),
+			name: name,
+			symbol: symbol,
+			currency: currency,
 		}));
 });
 
@@ -62,21 +65,39 @@ ponder.on(
 	async ({ event, context }: any) => {
 		const netAmount = BigInt(event.args.amount) - BigInt(event.args.feeAmount);
 
+		// Update or insert sender balance
 		await context.db
-			.update(balances, { user: event.args.sender })
-			.set((row: any) => ({
+			.insert(balances)
+			.values({
+				user: event.args.sender,
+				amount: BigInt(0) - BigInt(event.args.amount),
+				lockedAmount: BigInt(0),
+			})
+			.onConflictDoUpdate((row: any) => ({
 				amount: row.amount - BigInt(event.args.amount),
 			}));
 
+		// Update or insert receiver balance
 		await context.db
-			.update(balances, { user: event.args.receiver })
-			.set((row: any) => ({
+			.insert(balances)
+			.values({
+				user: event.args.receiver,
+				amount: netAmount,
+				lockedAmount: BigInt(0),
+			})
+			.onConflictDoUpdate((row: any) => ({
 				amount: row.amount + netAmount,
 			}));
 
+		// Update or insert operator balance
 		await context.db
-			.update(balances, { user: event.args.operator })
-			.set((row: any) => ({
+			.insert(balances)
+			.values({
+				user: event.args.operator,
+				amount: BigInt(event.args.feeAmount),
+				lockedAmount: BigInt(0),
+			})
+			.onConflictDoUpdate((row: any) => ({
 				amount: row.amount + BigInt(event.args.feeAmount),
 			}));
 	}

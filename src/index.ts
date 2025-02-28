@@ -28,11 +28,10 @@ function updateCandlestickBucket(
 	context: any,
 	event: any
 ) {
-	const timestampId = Math.floor(timestamp / intervalInSeconds) * intervalInSeconds;
+	const timestampId =
+		Math.floor(timestamp / intervalInSeconds) * intervalInSeconds;
 	const bucketId = createHash("sha256")
-		.update(
-			`${event.log.address!}-${timestampId}`
-		)
+		.update(`${event.log.address!}-${timestampId}`)
 		.digest("hex");
 
 	return context.db
@@ -64,6 +63,8 @@ ponder.on("OrderBook:OrderPlaced" as any, async ({ event, context }: any) => {
 	const id = createHash("sha256")
 		.update(`${BigInt(event.args.orderId!)}-${event.log.address!}`)
 		.digest("hex");
+
+	// console.log("OrderPlaced id ", id);
 	await context.db
 		.insert(orders)
 		.values({
@@ -117,22 +118,24 @@ ponder.on("OrderBook:OrderMatched" as any, async ({ event, context }: any) => {
 			`${event.transaction.hash}-${event.args.user}-buy-${event.args.buyOrderId}-${event.args.sellOrderId}-${event.args.executionPrice}-${event.args.executedQuantity}`
 		)
 		.digest("hex");
+	const buyOrderId = createHash("sha256")
+		.update(`${BigInt(event.args.buyOrderId!)}-${event.log.address!}`)
+		.digest("hex");
+
+	// console.log("buyOrderId", event.args.buyOrderId, buyOrderId);
+
 	await context.db
 		.insert(trades)
 		.values({
 			id: id,
 			transactionId: event.transaction.hash,
-			orderId: BigInt(event.args.buyOrderId),
+			orderId: buyOrderId,
 			timestamp: Number(event.args.timestamp),
 			price: BigInt(event.args.executionPrice),
 			quantity: BigInt(event.args.executedQuantity),
 			poolId: event.log.address!,
 		})
 		.onConflictDoNothing();
-
-	const buyOrderId = createHash("sha256")
-		.update(`${BigInt(event.args.buyOrderId!)}-${event.log.address!}`)
-		.digest("hex");
 
 	await context.db.update(orders, { id: buyOrderId }).set((row: any) => ({
 		filled: row.filled + BigInt(event.args.executedQuantity),
@@ -148,22 +151,24 @@ ponder.on("OrderBook:OrderMatched" as any, async ({ event, context }: any) => {
 		)
 		.digest("hex");
 
+	const sellOrderId = createHash("sha256")
+		.update(`${BigInt(event.args.sellOrderId!)}-${event.log.address!}`)
+		.digest("hex");
+
+	// console.log("sellOrderId", event.args.sellOrderId, sellOrderId);
+
 	await context.db
 		.insert(trades)
 		.values({
 			id: oppositeId,
 			transactionId: event.transaction.hash,
-			orderId: BigInt(event.args.sellOrderId),
+			orderId: sellOrderId,
 			timestamp: Number(event.args.timestamp),
 			price: BigInt(event.args.executionPrice),
 			quantity: BigInt(event.args.executedQuantity),
 			poolId: event.log.address!,
 		})
 		.onConflictDoNothing();
-
-	const sellOrderId = createHash("sha256")
-		.update(`${BigInt(event.args.sellOrderId!)}-${event.log.address!}`)
-		.digest("hex");
 
 	await context.db.update(orders, { id: sellOrderId }).set((row: any) => ({
 		filled: row.filled + BigInt(event.args.executedQuantity),
@@ -178,7 +183,7 @@ ponder.on("OrderBook:OrderMatched" as any, async ({ event, context }: any) => {
 		fiveMinutes: 300,
 		thirtyMinutes: 1800,
 		hour: 3600,
-		day: 86400
+		day: 86400,
 	};
 
 	for (const [table, seconds] of [
@@ -186,7 +191,7 @@ ponder.on("OrderBook:OrderMatched" as any, async ({ event, context }: any) => {
 		[fiveMinuteBuckets, intervals.fiveMinutes],
 		[thirtyMinuteBuckets, intervals.thirtyMinutes],
 		[hourBuckets, intervals.hour],
-		[dailyBuckets, intervals.day]
+		[dailyBuckets, intervals.day],
 	] as const) {
 		await updateCandlestickBucket(
 			table,
@@ -197,8 +202,6 @@ ponder.on("OrderBook:OrderMatched" as any, async ({ event, context }: any) => {
 			event
 		);
 	}
-
-
 });
 
 ponder.on(
