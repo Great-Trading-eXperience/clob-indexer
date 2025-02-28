@@ -4,7 +4,7 @@ import { ERC20ABI } from "../abis/ERC20";
 import { pools } from "ponder:schema";
 
 ponder.on("PoolManager:PoolCreated" as any, async ({ event, context }: any) => {
-	console.log("Pool Created Event:", event);
+	// console.log("Pool Created Event:", event);
 	const { client } = context;
 	const baseSymbol = await client.readContract({
 		abi: ERC20ABI,
