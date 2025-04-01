@@ -61,7 +61,7 @@ export default createConfig({
 	networks: {
 		gtxSepolia: {
 			chainId: Number(chainId),
-			transport: http(process.env.PONDER_RPC_URL_RISE_SEPOLIA),
+			transport: http(process.env.PONDER_RPC_URL_GTX_SEPOLIA),
 			pollingInterval: 2_000,
 			maxRequestsPerSecond: 25,
 		},
