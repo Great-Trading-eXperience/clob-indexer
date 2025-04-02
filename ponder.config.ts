@@ -4,6 +4,9 @@ import { BalanceManagerABI } from "./abis/BalanceManager";
 import { GTXRouterABI } from "./abis/GTXRouter";
 import { OrderBookABI } from "./abis/OrderBook";
 import { PoolManagerABI } from "./abis/PoolManager";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const chainId = 1020201; // GTX Sepolia
 const default_address = getAddress(
@@ -19,7 +22,7 @@ const contracts: any = {
 				getAddress(process.env.POOLMANAGER_CONTRACT_ADDRESS as `0x${string}`) ||
 				default_address,
 			event: parseAbiItem(
-				"event PoolCreated(bytes indexed poolId,address orderBook,address baseCurrency, address quoteCurrency, uint256 lotSize,uint256 maxOrderAmount)"
+				"event PoolCreated(bytes32 indexed poolId, address orderBook, address baseCurrency, address quoteCurrency, uint256 lotSize, uint256 maxOrderAmount)"
 			),
 			parameter: "orderBook",
 		}),

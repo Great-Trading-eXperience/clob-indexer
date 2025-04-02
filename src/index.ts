@@ -88,8 +88,8 @@ ponder.on("OrderBook:OrderPlaced" as any, async ({ event, context }: any) => {
 	// console.log("placed");
 
 	await context.db.insert(orderHistory).values({
-		id: event.transaction.hash,
-		orderId: BigInt(event.args.orderId),
+		id: event.transaction.hash.toString(),
+		orderId: event.args.orderId.toString(),
 		poolId: event.log.address!,
 		timestamp: Number(event.args.timestamp),
 		quantity: BigInt(event.args.quantity),
@@ -223,7 +223,7 @@ ponder.on("OrderBook:UpdateOrder" as any, async ({ event, context }: any) => {
 		.digest("hex");
 	await context.db.insert(orderHistory).values({
 		id: orderHistoryId,
-		orderId: BigInt(event.args.orderId),
+		orderId: event.args.orderId.toString(),
 		timestamp: Number(event.args.timestamp),
 		filled: BigInt(event.args.filled),
 		status: orderStatus[Number(event.args.status)],
