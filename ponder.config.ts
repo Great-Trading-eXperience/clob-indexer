@@ -4,8 +4,11 @@ import { BalanceManagerABI } from "./abis/BalanceManager";
 import { GTXRouterABI } from "./abis/GTXRouter";
 import { OrderBookABI } from "./abis/OrderBook";
 import { PoolManagerABI } from "./abis/PoolManager";
+import dotenv from "dotenv";
 
-const chainId = 11155931;
+dotenv.config();
+
+const chainId = 1020201; // GTX Sepolia
 const default_address = getAddress(
 	"0x0000000000000000000000000000000000000000"
 );
@@ -13,13 +16,13 @@ const default_address = getAddress(
 const contracts: any = {
 	OrderBook: {
 		abi: OrderBookABI,
-		network: "riseSepolia",
+		network: "gtxSepolia",
 		address: factory({
 			address:
 				getAddress(process.env.POOLMANAGER_CONTRACT_ADDRESS as `0x${string}`) ||
 				default_address,
 			event: parseAbiItem(
-				"event PoolCreated(bytes32 indexed id, address indexed orderBook, address baseCurrency, address quoteCurrency, uint256 lotSize, uint256 maxOrderAmount)"
+				"event PoolCreated(bytes32 indexed poolId, address orderBook, address baseCurrency, address quoteCurrency, uint256 lotSize, uint256 maxOrderAmount)"
 			),
 			parameter: "orderBook",
 		}),
@@ -27,7 +30,7 @@ const contracts: any = {
 	},
 	PoolManager: {
 		abi: PoolManagerABI || [],
-		network: "riseSepolia",
+		network: "gtxSepolia",
 		address: getAddress(
 			(process.env.POOLMANAGER_CONTRACT_ADDRESS as `0x${string}`) ||
 			default_address
@@ -36,7 +39,7 @@ const contracts: any = {
 	},
 	BalanceManager: {
 		abi: BalanceManagerABI || [],
-		network: "riseSepolia",
+		network: "gtxSepolia",
 		address: getAddress(
 			(process.env.BALANCEMANAGER_CONTRACT_ADDRESS as `0x${string}`) ||
 			default_address
@@ -45,7 +48,7 @@ const contracts: any = {
 	},
 	GTXRouter: {
 		abi: GTXRouterABI || [],
-		network: "riseSepolia",
+		network: "gtxSepolia",
 		address: getAddress(
 			(process.env.GTXROUTER_CONTRACT_ADDRESS as `0x${string}`) ||
 			default_address
@@ -56,13 +59,12 @@ const contracts: any = {
 
 export default createConfig({
 	database: {
-		kind: "postgres",
-		connectionString: process.env.PONDER_DATABASE_URL!,
+		kind: "sqlite"
 	},
 	networks: {
-		riseSepolia: {
+		gtxSepolia: {
 			chainId: Number(chainId),
-			transport: http(process.env.PONDER_RPC_URL_RISE_SEPOLIA),
+			transport: http(process.env.PONDER_RPC_URL_GTX_SEPOLIA),
 			pollingInterval: 2_000,
 			maxRequestsPerSecond: 25,
 		},
