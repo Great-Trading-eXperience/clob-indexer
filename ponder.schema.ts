@@ -8,8 +8,6 @@ export const pools = onchainTable(
 		orderBook: t.hex(),
 		baseCurrency: t.hex().notNull(),
 		quoteCurrency: t.hex().notNull(),
-		lotSize: t.bigint().notNull(),
-		maxOrderAmount: t.bigint().notNull(),
 		timestamp: t.integer(),
 	}),
 	(table: any) => ({

@@ -27,8 +27,6 @@ ponder.on("PoolManager:PoolCreated" as any, async ({ event, context }: any) => {
 			orderBook: getAddress(event.args.orderBook),
 			baseCurrency: getAddress(event.args.baseCurrency),
 			quoteCurrency: getAddress(event.args.quoteCurrency),
-			lotSize: BigInt(event.args.lotSize),
-			maxOrderAmount: BigInt(event.args.maxOrderAmount),
 			timestamp: Number(event.block.timestamp),
 		})
 		.onConflictDoNothing();

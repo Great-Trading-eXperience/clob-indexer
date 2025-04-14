@@ -8,7 +8,6 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const chainId = 1020201; // GTX Sepolia
 const default_address = getAddress(
 	"0x0000000000000000000000000000000000000000"
 );
@@ -16,13 +15,13 @@ const default_address = getAddress(
 const contracts: any = {
 	OrderBook: {
 		abi: OrderBookABI,
-		network: "gtxSepolia",
+		network: "network",
 		address: factory({
 			address:
 				getAddress(process.env.POOLMANAGER_CONTRACT_ADDRESS as `0x${string}`) ||
 				default_address,
 			event: parseAbiItem(
-				"event PoolCreated(bytes32 indexed poolId, address orderBook, address baseCurrency, address quoteCurrency, uint256 lotSize, uint256 maxOrderAmount)"
+				"event PoolCreated(bytes32 indexed poolId, address orderBook, address baseCurrency, address quoteCurrency)"
 			),
 			parameter: "orderBook",
 		}),
@@ -30,7 +29,7 @@ const contracts: any = {
 	},
 	PoolManager: {
 		abi: PoolManagerABI || [],
-		network: "gtxSepolia",
+		network: "network",
 		address: getAddress(
 			(process.env.POOLMANAGER_CONTRACT_ADDRESS as `0x${string}`) ||
 			default_address
@@ -39,7 +38,7 @@ const contracts: any = {
 	},
 	BalanceManager: {
 		abi: BalanceManagerABI || [],
-		network: "gtxSepolia",
+		network: "network",
 		address: getAddress(
 			(process.env.BALANCEMANAGER_CONTRACT_ADDRESS as `0x${string}`) ||
 			default_address
@@ -48,7 +47,7 @@ const contracts: any = {
 	},
 	GTXRouter: {
 		abi: GTXRouterABI || [],
-		network: "gtxSepolia",
+		network: "network",
 		address: getAddress(
 			(process.env.GTXROUTER_CONTRACT_ADDRESS as `0x${string}`) ||
 			default_address
@@ -59,14 +58,14 @@ const contracts: any = {
 
 export default createConfig({
 	database: {
-		kind: "sqlite"
+		kind: "pglite",
 	},
 	networks: {
-		gtxSepolia: {
-			chainId: Number(chainId),
-			transport: http(process.env.PONDER_RPC_URL_GTX_SEPOLIA),
-			pollingInterval: 2_000,
-			maxRequestsPerSecond: 25,
+		network: {
+			chainId: Number(process.env.CHAIN_ID),
+			transport: http(process.env.PONDER_RPC_URL),
+			pollingInterval: Number(process.env.POLLING_INTERVAL) || 10000,
+			maxRequestsPerSecond: Number(process.env.MAX_REQUESTS_PER_SECOND) || 5,
 		},
 	},
 	contracts: contracts,
