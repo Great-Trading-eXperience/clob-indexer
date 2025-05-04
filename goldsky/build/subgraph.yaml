@@ -6,9 +6,9 @@ dataSources:
     name: PoolManager
     network: pharos-devnet
     source:
-      address: "0x4D5B0c25E0F3990A9BF6c6E82e4D58B0fC2d1c43"
+      address: "0xdc7140aDD6Aa66a18Dc1633e28607AC34de852dc"
       abi: PoolManager
-      startBlock: 18834661
+      startBlock: 18834553
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -19,7 +19,6 @@ dataSources:
         - OrderHistory
         - Trade
         - OrderBookTrade
-        - Bucket
       abis:
         - name: PoolManager
           file: PoolManager/PoolManager.json
@@ -33,9 +32,9 @@ dataSources:
     name: BalanceManager
     network: pharos-devnet
     source:
-      address: "0x4D5B0c25E0F3990A9BF6c6E82e4D58B0fC2d1c43"
+      address: "0x6F199125B610A34F3a9A02c24416EAB4Ac1d46F6"
       abi: BalanceManager
-      startBlock: 18834661
+      startBlock: 18834553
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
