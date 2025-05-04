@@ -17,3 +17,12 @@ yarn-error.log*
 # Ponder
 /generated/
 /.ponder/
+
+# Goldsky
+/goldsky/node_modules
+/goldsky/build
+/goldsky/dist
+/goldsky/coverage
+/goldsky/logs
+/goldsky/cache
+/goldsky/config

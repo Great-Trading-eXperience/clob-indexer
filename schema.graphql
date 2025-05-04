@@ -1,0 +1,53 @@
+type Pool @entity {
+  id: ID!
+  orderBook: Bytes!
+  baseCurrency: Bytes!
+  quoteCurrency: Bytes!
+  timestamp: BigInt!
+  orders: [Order!]! @derivedFrom(field: "pool")
+}
+
+type Order @entity {
+  id: ID!
+  pool: Pool!
+  user: Bytes!
+  side: String!
+  price: BigInt!
+  quantity: BigInt!
+  timestamp: BigInt!
+  status: String!
+  trades: [Trade!]! @derivedFrom(field: "order")
+}
+
+type Trade @entity {
+  id: ID!
+  order: Order!
+  price: BigInt!
+  quantity: BigInt!
+  timestamp: BigInt!
+}
+
+type OrderBookTrade @entity {
+  id: ID!
+  price: BigInt!
+  quantity: BigInt!
+  timestamp: BigInt!
+  side: String!
+}
+
+type Balance @entity {
+  id: ID!
+  user: Bytes!
+  amount: BigInt!
+}
+
+type Bucket @entity {
+  id: ID!
+  open: BigInt!
+  high: BigInt!
+  low: BigInt!
+  close: BigInt!
+  volume: BigInt!
+  timestamp: BigInt!
+  interval: String!
+} 
