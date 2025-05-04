@@ -25,7 +25,7 @@ const contracts: any = {
 			),
 			parameter: "orderBook",
 		}),
-		startBlock: process.env.START_BLOCK_ORDER_BOOK as number | undefined,
+		startBlock: process.env.START_BLOCK as number | undefined,
 	},
 	PoolManager: {
 		abi: PoolManagerABI || [],

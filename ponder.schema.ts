@@ -156,3 +156,40 @@ export const balances = onchainTable(
 		currencyIdx: index().on(table.currency),
 	})
 );
+
+export const marketMakers = onchainTable(
+	"market_makers",
+	(t) => ({
+		id: t.text().primaryKey(),
+		user: t.hex(),
+		poolId: t.hex().notNull(),
+		amount: t.bigint(),
+		lockedAmount: t.bigint(),
+		expiry: t.integer(),
+	})
+)
+
+export const velockPositions = onchainTable(
+	"velock_positions",
+	(t) => ({
+		id: t.text().primaryKey(),
+		user: t.hex(),
+		poolId: t.hex().notNull(),
+		amount: t.bigint(),
+		lockedAmount: t.bigint(),
+		expiry: t.integer(),
+	})
+);
+
+export const votes = onchainTable(
+	"votes",
+	(t) => ({
+		id: t.text().primaryKey(),
+		user: t.hex(),
+		poolId: t.hex().notNull(),
+		amount: t.bigint(),
+		lockedAmount: t.bigint(),
+		timestamp: t.integer(),
+		expiry: t.integer(),
+	})
+)

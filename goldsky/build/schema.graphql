@@ -1,0 +1,126 @@
+type Pool @entity {
+  id: ID!
+  coin: String
+  orderBook: Bytes
+  baseCurrency: Bytes!
+  quoteCurrency: Bytes!
+  timestamp: BigInt
+}
+
+type Order @entity {
+  id: ID!
+  pool: String!
+  poolEntity: Pool!
+  orderId: BigInt!
+  user: Bytes
+  side: String
+  timestamp: BigInt
+  price: BigInt
+  quantity: BigInt
+  orderValue: BigInt
+  filled: BigInt
+  type: String
+  status: String
+  expiry: BigInt
+  orderHistory: [OrderHistory!]! @derivedFrom(field: "order")
+  trades: [Trade!]! @derivedFrom(field: "order")
+}
+
+type OrderHistory @entity {
+  id: ID!
+  pool: String!
+  poolEntity: Pool!
+  order: Order!
+  orderId: String
+  timestamp: BigInt
+  quantity: BigInt
+  filled: BigInt
+  status: String
+}
+
+type Trade @entity {
+  id: ID!
+  transactionId: String
+  pool: String!
+  poolEntity: Pool!
+  order: Order
+  price: BigInt
+  quantity: BigInt
+  timestamp: BigInt
+}
+
+type OrderBookTrade @entity {
+  id: ID!
+  price: BigInt
+  quantity: BigInt
+  timestamp: BigInt
+  transactionId: String
+  side: String
+  pool: String!
+  poolEntity: Pool!
+}
+
+type MinuteBucket @entity {
+  id: ID!
+  open: BigDecimal!
+  close: BigDecimal!
+  low: BigDecimal!
+  high: BigDecimal!
+  average: BigDecimal!
+  count: Int!
+  pool: String!
+  poolEntity: Pool!
+  timestamp: BigInt!
+}
+
+type FiveMinuteBucket @entity {
+  id: ID!
+  open: BigDecimal!
+  close: BigDecimal!
+  low: BigDecimal!
+  high: BigDecimal!
+  average: BigDecimal!
+  count: Int!
+  pool: String!
+  poolEntity: Pool!
+  timestamp: BigInt!
+}
+
+type ThirtyMinuteBucket @entity {
+  id: ID!
+  open: BigDecimal!
+  close: BigDecimal!
+  low: BigDecimal!
+  high: BigDecimal!
+  average: BigDecimal!
+  count: Int!
+  pool: String!
+  poolEntity: Pool!
+  timestamp: BigInt!
+}
+
+type HourBucket @entity {
+  id: ID!
+  open: BigDecimal!
+  close: BigDecimal!
+  low: BigDecimal!
+  high: BigDecimal!
+  average: BigDecimal!
+  count: Int!
+  pool: String!
+  poolEntity: Pool!
+  timestamp: BigInt!
+}
+
+type DailyBucket @entity {
+  id: ID!
+  open: BigDecimal!
+  close: BigDecimal!
+  low: BigDecimal!
+  high: BigDecimal!
+  average: BigDecimal!
+  count: Int!
+  pool: String!
+  poolEntity: Pool!
+  timestamp: BigInt!
+}

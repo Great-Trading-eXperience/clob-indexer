@@ -1,0 +1,13 @@
+{
+  "pharos-devnet": {
+    "chainId": 50002,
+    "rpc": ["https://devnet.dplabs-internal.com"],
+    "websocket": ["https://grafana.dplabs-internal.com/"],
+    "startBlock": 0,
+    "nativeCurrency": {
+      "name": "Ether",
+      "symbol": "ETH",
+      "decimals": 18
+    }
+  }
+} 
