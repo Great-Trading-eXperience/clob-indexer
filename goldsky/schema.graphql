@@ -10,7 +10,6 @@ type Pool @entity {
 type Order @entity {
   id: ID!
   pool: String!
-  poolEntity: Pool!
   orderId: BigInt!
   user: Bytes
   side: String
@@ -22,14 +21,11 @@ type Order @entity {
   type: String
   status: String
   expiry: BigInt
-  orderHistory: [OrderHistory!]! @derivedFrom(field: "order")
-  trades: [Trade!]! @derivedFrom(field: "order")
 }
 
 type OrderHistory @entity {
   id: ID!
   pool: String!
-  poolEntity: Pool!
   order: Order!
   orderId: String
   timestamp: BigInt
@@ -42,7 +38,6 @@ type Trade @entity {
   id: ID!
   transactionId: String
   pool: String!
-  poolEntity: Pool!
   order: Order
   price: BigInt
   quantity: BigInt
@@ -57,7 +52,6 @@ type OrderBookTrade @entity {
   transactionId: String
   side: String
   pool: String!
-  poolEntity: Pool!
 }
 
 type MinuteBucket @entity {
@@ -69,7 +63,6 @@ type MinuteBucket @entity {
   average: BigDecimal!
   count: Int!
   pool: String!
-  poolEntity: Pool!
   timestamp: BigInt!
 }
 
@@ -82,7 +75,6 @@ type FiveMinuteBucket @entity {
   average: BigDecimal!
   count: Int!
   pool: String!
-  poolEntity: Pool!
   timestamp: BigInt!
 }
 
@@ -95,7 +87,6 @@ type ThirtyMinuteBucket @entity {
   average: BigDecimal!
   count: Int!
   pool: String!
-  poolEntity: Pool!
   timestamp: BigInt!
 }
 
@@ -108,7 +99,6 @@ type HourBucket @entity {
   average: BigDecimal!
   count: Int!
   pool: String!
-  poolEntity: Pool!
   timestamp: BigInt!
 }
 
@@ -121,6 +111,15 @@ type DailyBucket @entity {
   average: BigDecimal!
   count: Int!
   pool: String!
-  poolEntity: Pool!
   timestamp: BigInt!
+}
+
+type Balance @entity {
+  id: ID!
+  user: Bytes!
+  name: String
+  symbol: String
+  currency: Bytes!
+  amount: BigInt!
+  lockedAmount: BigInt!
 }

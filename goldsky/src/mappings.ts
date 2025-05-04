@@ -1,8 +1,9 @@
-import { BigDecimal, BigInt, Bytes, crypto } from '@graphprotocol/graph-ts';
+import { Address, BigDecimal, BigInt, Bytes, crypto } from '@graphprotocol/graph-ts';
 import {
   PoolCreated
 } from '../generated/PoolManager/PoolManager';
 import {
+  Balance,
   DailyBucket,
   FiveMinuteBucket,
   HourBucket,
@@ -21,6 +22,7 @@ import {
   OrderPlaced,
   UpdateOrder
 } from '../generated/templates/OrderBook/OrderBook';
+import { Deposit, TransferFrom, Withdrawal } from '../generated/BalanceManager/BalanceManager';
 
 const ORDER_STATUS = [
   'OPEN',
@@ -70,7 +72,6 @@ function updateBucket(
     if (!bucket) {
       bucket = new MinuteBucket(bucketId);
       bucket.pool = poolAddress;
-      bucket.poolEntity = poolAddress; // Set pool address as ID to reference Pool entity
       bucket.timestamp = timestampId;
       bucket.open = priceDecimal;
       bucket.high = priceDecimal;
@@ -94,7 +95,6 @@ function updateBucket(
     if (!bucket) {
       bucket = new FiveMinuteBucket(bucketId);
       bucket.pool = poolAddress;
-      bucket.poolEntity = poolAddress; // Set pool address as ID to reference Pool entity
       bucket.timestamp = timestampId;
       bucket.open = priceDecimal;
       bucket.high = priceDecimal;
@@ -118,7 +118,6 @@ function updateBucket(
     if (!bucket) {
       bucket = new ThirtyMinuteBucket(bucketId);
       bucket.pool = poolAddress;
-      bucket.poolEntity = poolAddress; // Set pool address as ID to reference Pool entity
       bucket.timestamp = timestampId;
       bucket.open = priceDecimal;
       bucket.high = priceDecimal;
@@ -142,7 +141,6 @@ function updateBucket(
     if (!bucket) {
       bucket = new HourBucket(bucketId);
       bucket.pool = poolAddress;
-      bucket.poolEntity = poolAddress; // Set pool address as ID to reference Pool entity
       bucket.timestamp = timestampId;
       bucket.open = priceDecimal;
       bucket.high = priceDecimal;
@@ -166,7 +164,6 @@ function updateBucket(
     if (!bucket) {
       bucket = new DailyBucket(bucketId);
       bucket.pool = poolAddress;
-      bucket.poolEntity = poolAddress; // Set pool address as ID to reference Pool entity
       bucket.timestamp = timestampId;
       bucket.open = priceDecimal;
       bucket.high = priceDecimal;
@@ -195,7 +192,6 @@ export function handleOrderPlaced(event: OrderPlaced): void {
 
   let order = new Order(id);
   order.pool = event.address.toHexString();
-  order.poolEntity = event.address.toHexString(); // Set pool address as ID to reference Pool entity
   order.orderId = event.params.orderId;
   order.user = event.params.user;
   order.side = event.params.side ? 'Sell' : 'Buy';
@@ -211,7 +207,6 @@ export function handleOrderPlaced(event: OrderPlaced): void {
 
   let history = new OrderHistory(event.transaction.hash.toHexString());
   history.pool = event.address.toHexString();
-  history.poolEntity = event.address.toHexString(); // Set pool address as ID to reference Pool entity
   history.order = id;
   history.orderId = event.params.orderId.toString();
   history.timestamp = event.block.timestamp;
@@ -236,7 +231,6 @@ export function handleOrderMatched(event: OrderMatched): void {
   orderBookTrade.transactionId = event.transaction.hash.toHexString();
   orderBookTrade.side = event.params.side ? 'Sell' : 'Buy';
   orderBookTrade.pool = event.address.toHexString();
-  orderBookTrade.poolEntity = event.address.toHexString(); // Set pool address as ID to reference Pool entity
   orderBookTrade.save();
 
   // Create Trade for buy order
@@ -254,7 +248,6 @@ export function handleOrderMatched(event: OrderMatched): void {
   buyTrade.transactionId = event.transaction.hash.toHexString();
   buyTrade.order = buyOrderId;
   buyTrade.pool = event.address.toHexString();
-  buyTrade.poolEntity = event.address.toHexString(); // Set pool address as ID to reference Pool entity
   buyTrade.timestamp = event.block.timestamp;
   buyTrade.price = event.params.executionPrice;
   buyTrade.quantity = event.params.executedQuantity;
@@ -299,7 +292,6 @@ export function handleOrderMatched(event: OrderMatched): void {
   sellTrade.transactionId = event.transaction.hash.toHexString();
   sellTrade.order = sellOrderId;
   sellTrade.pool = event.address.toHexString();
-  sellTrade.poolEntity = event.address.toHexString(); // Set pool address as ID to reference Pool entity
   sellTrade.timestamp = event.block.timestamp;
   sellTrade.price = event.params.executionPrice;
   sellTrade.quantity = event.params.executedQuantity;
@@ -329,7 +321,6 @@ export function handleOrderMatched(event: OrderMatched): void {
     }
   }
 
-  // Update buckets for different intervals
   for (let i = 0; i < bucketNames.length; i++) {
     updateBucket(
       bucketNames[i],
@@ -367,7 +358,6 @@ export function handleUpdateOrder(event: UpdateOrder): void {
   if (order) {
     let history = new OrderHistory(orderHistoryId);
     history.pool = event.address.toHexString();
-  history.poolEntity = event.address.toHexString();
     history.order = orderId;
     history.orderId = event.params.orderId.toString();
     history.timestamp = event.params.timestamp;
@@ -385,6 +375,7 @@ export function handleUpdateOrder(event: UpdateOrder): void {
 export function handlePoolCreated(event: PoolCreated): void {
   const poolId = event.params.poolId.toHexString();
   let pool = new Pool(poolId);
+  pool.coin = `${event.params.baseCurrency}/${event.params.quoteCurrency}`;
   pool.orderBook = event.params.orderBook;
   pool.baseCurrency = event.params.baseCurrency;
   pool.quoteCurrency = event.params.quoteCurrency;
@@ -393,4 +384,65 @@ export function handlePoolCreated(event: PoolCreated): void {
 
   // Create a new OrderBook template instance
   OrderBook.create(event.params.orderBook);
+}
+
+function fromId(id: BigInt): Bytes {
+  let hexString = id.toHexString().slice(2) // Remove '0x' prefix
+  while (hexString.length < 40) {
+    hexString = "0" + hexString
+  }
+  return Bytes.fromHexString("0x" + hexString)
+}
+
+function getOrCreateBalance(user: Bytes): Balance {
+  let balance = Balance.load(user.toHexString())
+  if (balance == null) {
+    balance = new Balance(user.toHexString())
+    balance.user = user
+    balance.amount = BigInt.fromI32(0)
+    balance.lockedAmount = BigInt.fromI32(0)
+    balance.name = ""
+    balance.symbol = ""
+  }
+  return balance
+}
+
+export function handleDeposit(event: Deposit): void {
+  let currency = fromId(event.params.id)
+  
+  let balance = getOrCreateBalance(event.params.user)
+  balance.name = ""
+  balance.symbol = ""
+  balance.currency = currency
+  balance.amount = balance.amount.plus(event.params.amount)
+  balance.save()
+}
+
+export function handleWithdrawal(event: Withdrawal): void {
+  let balance = getOrCreateBalance(event.params.user)
+  balance.amount = balance.amount.minus(event.params.amount)
+  balance.save()
+}
+
+export function handleTransferFrom(event: TransferFrom): void {
+  let currency = fromId(event.params.id)
+  let netAmount = event.params.amount.minus(event.params.feeAmount)
+  
+  // Update sender balance
+  let senderBalance = getOrCreateBalance(event.params.sender)
+  senderBalance.currency = currency
+  senderBalance.amount = senderBalance.amount.minus(event.params.amount)
+  senderBalance.save()
+  
+  // Update receiver balance
+  let receiverBalance = getOrCreateBalance(event.params.receiver)
+  receiverBalance.currency = currency
+  receiverBalance.amount = receiverBalance.amount.plus(netAmount)
+  receiverBalance.save()
+  
+  // Update operator balance  
+  let operatorBalance = getOrCreateBalance(event.params.operator)
+  operatorBalance.currency = currency
+  operatorBalance.amount = operatorBalance.amount.plus(event.params.feeAmount)
+  operatorBalance.save()
 }

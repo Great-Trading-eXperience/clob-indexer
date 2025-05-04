@@ -19,7 +19,6 @@ dataSources:
         - OrderHistory
         - Trade
         - OrderBookTrade
-        - Bucket
       abis:
         - name: PoolManager
           file: ./abis/PoolManager.json
@@ -29,7 +28,7 @@ dataSources:
         - event: PoolCreated(indexed bytes32,address,address,address)
           handler: handlePoolCreated
       file: ./src/mappings.ts
-
+      
   - kind: ethereum
     name: BalanceManager
     network: pharos-devnet
