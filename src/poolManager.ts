@@ -11,11 +11,21 @@ ponder.on("PoolManager:PoolCreated" as any, async ({ event, context }: any) => {
 		address: getAddress(event.args.baseCurrency),
 		functionName: "symbol",
 	});
-
 	const quoteSymbol = await client.readContract({
 		abi: ERC20ABI,
 		address: getAddress(event.args.quoteCurrency),
 		functionName: "symbol",
+	});
+
+	const baseDecimals = await client.readContract({
+		abi: ERC20ABI,
+		address: getAddress(event.args.baseCurrency),
+		functionName: "decimals",
+	});
+	const quoteDecimals = await client.readContract({
+		abi: ERC20ABI,
+		address: getAddress(event.args.quoteCurrency),
+		functionName: "decimals",
 	});
 
 	const coin = `${baseSymbol}/${quoteSymbol}`;
@@ -27,6 +37,8 @@ ponder.on("PoolManager:PoolCreated" as any, async ({ event, context }: any) => {
 			orderBook: getAddress(event.args.orderBook),
 			baseCurrency: getAddress(event.args.baseCurrency),
 			quoteCurrency: getAddress(event.args.quoteCurrency),
+			baseDecimals: baseDecimals,
+			quoteDecimals: quoteDecimals,
 			timestamp: Number(event.block.timestamp),
 		})
 		.onConflictDoNothing();

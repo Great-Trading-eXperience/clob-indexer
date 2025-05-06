@@ -8,6 +8,8 @@ export const pools = onchainTable(
 		orderBook: t.hex(),
 		baseCurrency: t.hex().notNull(),
 		quoteCurrency: t.hex().notNull(),
+		baseDecimals: t.integer(),
+		quoteDecimals: t.integer(),
 		timestamp: t.integer(),
 	}),
 	(table: any) => ({
@@ -125,15 +127,24 @@ export const orderBookTrades = onchainTable(
 
 const createBucketTable = (tableName: string) =>
 	onchainTable(tableName, (t) => ({
-		id: t.text().primaryKey(),
-		open: t.real().notNull(),
-		close: t.real().notNull(),
-		low: t.real().notNull(),
-		high: t.real().notNull(),
-		average: t.real().notNull(),
-		count: t.integer().notNull(),
-		poolId: t.hex().notNull(),
-		timestamp: t.integer().notNull(),
+	  id: t.text().primaryKey(),
+	  openTime: t.integer().notNull(),      
+	  closeTime: t.integer().notNull(),      
+	  open: t.real().notNull(),               
+	  high: t.real().notNull(),               
+	  low: t.real().notNull(),               
+	  close: t.real().notNull(),             
+	  volume: t.real().notNull(),             
+	  quoteVolume: t.real().notNull(),        
+	  count: t.integer().notNull(),           
+	  takerBuyBaseVolume: t.real().notNull(), 
+	  takerBuyQuoteVolume: t.real().notNull(),
+	  average: t.real().notNull(),            
+	  poolId: t.hex().notNull(),              
+	}),
+	(table) => ({
+	  openTimeIdx: index().on(table.openTime),
+	  poolIdx: index().on(table.poolId),
 	}));
 
 export const minuteBuckets = createBucketTable("minute_buckets");
