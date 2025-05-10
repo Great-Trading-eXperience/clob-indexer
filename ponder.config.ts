@@ -1,72 +1,167 @@
-import { createConfig, factory } from "ponder";
-import { getAddress, http, parseAbiItem } from "viem";
-import { BalanceManagerABI } from "./abis/BalanceManager";
-import { GTXRouterABI } from "./abis/GTXRouter";
-import { OrderBookABI } from "./abis/OrderBook";
-import { PoolManagerABI } from "./abis/PoolManager";
+import {createConfig, factory, loadBalance, rateLimit} from "ponder";
+import {Address, getAddress, http, parseAbiItem, webSocket} from "viem";
+import {OrderBookABI} from "./abis/OrderBook";
+import {PoolManagerABI} from "./abis/PoolManager";
+import {BalanceManagerABI} from "./abis/BalanceManager";
+import {GTXRouterABI} from "./abis/GTXRouter";
+import deploymentsAnvil from "./deployments/31337.json";
+import deploymentsGTX from "./deployments/31338.json";
+import deploymentsPharos from "./deployments/50002.json";
+import deploymentsRise from "./deployments/11155931.json";
 import dotenv from "dotenv";
+import startBlock from "./deployments/start-block.json";
 
 dotenv.config();
 
-const default_address = getAddress(
-	"0x0000000000000000000000000000000000000000"
-);
+const createOrderBookFactory = (poolManagerAddress: Address) => {
+  return factory({
+    address: getAddress(poolManagerAddress),
+    event: parseAbiItem(
+        "event PoolCreated(bytes32 indexed poolId, address orderBook, address baseCurrency, address quoteCurrency)"
+    ),
+    parameter: "orderBook",
+  });
+};
 
-const contracts: any = {
-	OrderBook: {
-		abi: OrderBookABI,
-		network: "network",
-		address: factory({
-			address:
-				getAddress(process.env.POOLMANAGER_CONTRACT_ADDRESS as `0x${string}`) ||
-				default_address,
-			event: parseAbiItem(
-				"event PoolCreated(bytes32 indexed poolId, address orderBook, address baseCurrency, address quoteCurrency)"
-			),
-			parameter: "orderBook",
-		}),
-		startBlock: process.env.START_BLOCK as number | undefined,
-	},
-	PoolManager: {
-		abi: PoolManagerABI || [],
-		network: "network",
-		address: getAddress(
-			(process.env.POOLMANAGER_CONTRACT_ADDRESS as `0x${string}`) ||
-			default_address
-		),
-		startBlock: Number(process.env.START_BLOCK) || undefined,
-	},
-	BalanceManager: {
-		abi: BalanceManagerABI || [],
-		network: "network",
-		address: getAddress(
-			(process.env.BALANCEMANAGER_CONTRACT_ADDRESS as `0x${string}`) ||
-			default_address
-		),
-		startBlock: Number(process.env.START_BLOCK) || undefined,
-	},
-	GTXRouter: {
-		abi: GTXRouterABI || [],
-		network: "network",
-		address: getAddress(
-			(process.env.GTXROUTER_CONTRACT_ADDRESS as `0x${string}`) ||
-			default_address
-		),
-		startBlock: Number(process.env.START_BLOCK) || undefined,
-	},
+// Define flags to enable/disable networks and contracts
+const enabledNetworks = {
+  riseSepolia: true,
+  pharosDevnet: false,
+  gtx: false,
+  anvil: false,
+};
+
+const enabledContracts = {
+  OrderBook: true,
+  PoolManager: true,
+  BalanceManager: true,
+  GTXRouter: true,
+};
+
+// Filter networks based on the enabledNetworks flag
+const filterNetworks = (networks: Record<string, any>) => {
+  return Object.fromEntries(
+      Object.entries(networks).filter(([key]) => enabledNetworks[key] as any)
+  );
+};
+
+// Filter contracts based on the enabledContracts flag and filtered networks
+const filterContracts = (contracts: Record<string, any>) => {
+  return Object.fromEntries(
+      Object.entries(contracts)
+          .filter(([key]) => enabledContracts[key] as any)
+          .map(([key, value]) => [
+            key,
+            {
+              ...value,
+              network: filterNetworks(value.network),
+            },
+          ])
+  );
 };
 
 export default createConfig({
-	database: {
-		kind: "pglite",
-	},
-	networks: {
-		network: {
-			chainId: Number(process.env.CHAIN_ID),
-			transport: http(process.env.PONDER_RPC_URL),
-			pollingInterval: Number(process.env.POLLING_INTERVAL) || 10000,
-			maxRequestsPerSecond: Number(process.env.MAX_REQUESTS_PER_SECOND) || 5,
-		},
-	},
-	contracts: contracts,
+  database: {
+    kind: "postgres",
+    connectionString: process.env.PONDER_DATABASE_URL,
+  },
+  networks: filterNetworks({
+    riseSepolia: {
+      chainId: 11155931,
+      transport: loadBalance([
+        rateLimit(http("https://testnet.riselabs.xyz"), {requestsPerSecond: 25}),
+        rateLimit(http(process.env.RPC_URL_RISE_NIRVANA), {requestsPerSecond: 25}),
+        rateLimit(http(process.env.RPC_URL_RISE_ALCHEMY), {requestsPerSecond: 25}),
+      ]),
+    },
+    pharosDevnet: {
+      chainId: 50002,
+      transport: loadBalance([
+        rateLimit(http("https://devnet.dplabs-internal.com"), {requestsPerSecond: 2}),
+        rateLimit(webSocket("wss://devnet.dplabs-internal.com"), {requestsPerSecond: 2}),
+        rateLimit(http("https://pharos-devnet.rpc.hypersync.xyz"), {requestsPerSecond: 2}),
+        rateLimit(http("https://50002.rpc.hypersync.xyz"), {requestsPerSecond: 2}),
+      ]),
+    },
+    gtx: {chainId: 31338, transport: http(process.env.RPC_URL_GTX), maxRequestsPerSecond: 25},
+    anvil: {chainId: 31337, transport: http(process.env.RPC_URL_ANVIL), disableCache: true},
+  }),
+  contracts: filterContracts({
+    OrderBook: {
+      abi: OrderBookABI,
+      network: {
+        riseSepolia: {
+          address: createOrderBookFactory(deploymentsRise.PROXY_POOLMANAGER as Address),
+          startBlock: startBlock.START_BLOCK_ORDERBOOK.riseSepolia,
+        },
+        pharosDevnet: {
+          address: createOrderBookFactory(deploymentsPharos.PROXY_POOLMANAGER as Address),
+          startBlock: startBlock.START_BLOCK_ORDERBOOK.pharosDevnet,
+        },
+        gtx: {
+          address: createOrderBookFactory(deploymentsGTX.PROXY_POOLMANAGER as Address),
+        },
+        anvil: {
+          address: createOrderBookFactory(deploymentsAnvil.PROXY_POOLMANAGER as Address),
+        },
+      },
+    },
+    PoolManager: {
+      abi: PoolManagerABI,
+      network: {
+        riseSepolia: {
+          address: deploymentsRise.PROXY_POOLMANAGER as Address,
+          startBlock: startBlock.START_BLOCK_POOLMANAGER.riseSepolia,
+        },
+        pharosDevnet: {
+          address: deploymentsPharos.PROXY_POOLMANAGER as Address,
+          startBlock: startBlock.START_BLOCK_POOLMANAGER.pharosDevnet,
+        },
+        gtx: {
+          address: deploymentsGTX.PROXY_POOLMANAGER as Address,
+        },
+        anvil: {
+          address: deploymentsAnvil.PROXY_POOLMANAGER as Address,
+        },
+      },
+    },
+    BalanceManager: {
+      abi: BalanceManagerABI,
+      network: {
+        riseSepolia: {
+          address: deploymentsRise.PROXY_BALANCEMANAGER as Address,
+          startBlock: startBlock.START_BLOCK_BALANCEMANAGER.riseSepolia,
+        },
+        pharosDevnet: {
+          address: deploymentsPharos.PROXY_BALANCEMANAGER as Address,
+          startBlock: startBlock.START_BLOCK_BALANCEMANAGER.pharosDevnet,
+        },
+        gtx: {
+          address: deploymentsGTX.PROXY_BALANCEMANAGER as Address,
+        },
+        anvil: {
+          address: deploymentsAnvil.PROXY_BALANCEMANAGER as Address,
+        },
+      },
+    },
+    GTXRouter: {
+      abi: GTXRouterABI,
+      network: {
+        riseSepolia: {
+          address: deploymentsRise.PROXY_ROUTER as Address,
+          startBlock: startBlock.START_BLOCK_ROUTER.riseSepolia,
+        },
+        pharosDevnet: {
+          address: deploymentsPharos.PROXY_ROUTER as Address,
+          startBlock: startBlock.START_BLOCK_ROUTER.pharosDevnet,
+        },
+        gtx: {
+          address: deploymentsGTX.PROXY_ROUTER as Address,
+        },
+        anvil: {
+          address: deploymentsAnvil.PROXY_ROUTER as Address,
+        },
+      },
+    },
+  }),
 });
