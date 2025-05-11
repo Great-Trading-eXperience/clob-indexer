@@ -58,8 +58,7 @@ const contracts: any = {
 
 export default createConfig({
   database: {
-    kind: "postgres",
-    connectionString: process.env.PONDER_DATABASE_URL,
+    kind: "pglite",
   },
   networks: {
     network: {
