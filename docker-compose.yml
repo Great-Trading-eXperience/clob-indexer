@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    env_file:
+      - .env
+    ports:
+      - "54321:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  ponder:
+    build: .
+    env_file:
+      - .env
+    ports:
+      - "42069:42069"
+    depends_on:
+      - postgres
+    restart: always
+
+volumes:
+  pgdata:
