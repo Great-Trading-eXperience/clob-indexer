@@ -24,6 +24,7 @@ export async function handleOrderPlaced({event, context}: any) {
             .values({
                 id: id,
                 chainId: chainId,
+                transactionId: event.transaction.hash.toString(),
                 user: event.args.user,
                 poolId: event.log.address!,
                 orderId: BigInt(event.args.orderId!),
@@ -52,6 +53,7 @@ export async function handleOrderPlaced({event, context}: any) {
             .values({
                 id: orderHistoryId,
                 chainId: chainId,
+                transactionId: event.transaction.hash.toString(),
                 orderId: event.args.orderId.toString(),
                 poolId: event.log.address!,
                 timestamp: Number(event.block.timestamp),
@@ -222,6 +224,7 @@ export async function handleUpdateOrder({event, context}: any) {
     await context.db.insert(orderHistory).values({
         id: orderHistoryId,
         chainId: chainId,
+        transactionId: event.transaction.hash.toString(),
         orderId: event.args.orderId.toString(),
         timestamp: Number(event.args.timestamp),
         filled: BigInt(event.args.filled),
