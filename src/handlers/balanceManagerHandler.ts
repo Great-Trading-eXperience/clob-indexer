@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import {balances} from "ponder:schema";
 import {createBalanceId} from "../utils/hash";
 import {getAddress, toHex} from "viem";
@@ -8,11 +9,17 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const ENABLED_WEBSOCKET = process.env.ENABLE_WEBSOCKET === 'true';
+=======
+import { balances } from "ponder:schema";
+import { createBalanceId } from "../utils/hash";
+import { getAddress, toHex } from "viem";
+>>>>>>> 3985bca (update voting handler)
 
 function fromId(id: number): string {
-    return `0x${id.toString(16).padStart(40, "0")}`;
+	return `0x${id.toString(16).padStart(40, "0")}`;
 }
 
+<<<<<<< HEAD
 export async function handleDeposit({event, context}: any) {
     const {db} = context;
     const chainId = context.network.chainId;
@@ -46,14 +53,37 @@ export async function handleDeposit({event, context}: any) {
             });
         }
     }
+=======
+export async function handleDeposit({ event, context }: any) {
+	const { db } = context;
+	const chainId = context.network.chainId;
+	const user = event.args.user;
+	const currency = getAddress(fromId(event.args.id));
+	const balanceId = createBalanceId(chainId, currency, user);
+
+	await db
+		.insert(balances)
+		.values({
+			id: balanceId,
+			user: user,
+			chainId: chainId,
+			currency: currency,
+			amount: BigInt(event.args.amount),
+			lockedAmount: BigInt(0),
+		})
+		.onConflictDoUpdate((row: any) => ({
+			amount: row.amount + BigInt(event.args.amount),
+		}));
+>>>>>>> 3985bca (update voting handler)
 }
 
-export async function handleWithdrawal({event, context}: any) {
-    const chainId = context.network.chainId;
-    const user = event.args.user;
-    const currency = getAddress(toHex(event.args.id));
-    const balanceId = createBalanceId(chainId, currency, user);
+export async function handleWithdrawal({ event, context }: any) {
+	const chainId = context.network.chainId;
+	const user = event.args.user;
+	const currency = getAddress(toHex(event.args.id));
+	const balanceId = createBalanceId(chainId, currency, user);
 
+<<<<<<< HEAD
     await context.db
         .update(balances, {id: balanceId})
         .set((row: any) => ({
@@ -72,13 +102,19 @@ export async function handleWithdrawal({event, context}: any) {
             });
         }
     }
+=======
+	await context.db.update(balances, { id: balanceId }).set((row: any) => ({
+		amount: row.amount - BigInt(event.args.amount),
+	}));
+>>>>>>> 3985bca (update voting handler)
 }
 
-export async function handleTransferFrom({event, context}: any) {
-    const chainId = context.network.chainId;
-    const netAmount = BigInt(event.args.amount) - BigInt(event.args.feeAmount);
-    const currency = getAddress(fromId(event.args.id));
+export async function handleTransferFrom({ event, context }: any) {
+	const chainId = context.network.chainId;
+	const netAmount = BigInt(event.args.amount) - BigInt(event.args.feeAmount);
+	const currency = getAddress(fromId(event.args.id));
 
+<<<<<<< HEAD
     // Update or insert sender balance
     const senderId = createBalanceId(chainId, currency, event.args.sender);
     await context.db
@@ -101,10 +137,34 @@ export async function handleTransferFrom({event, context}: any) {
             });
         }
     }
+=======
+	// Update or insert sender balance
+	const senderId = createBalanceId(chainId, currency, event.args.sender);
+	await context.db.update(balances, { id: senderId }).set((row: any) => ({
+		amount: row.amount - event.args.amount,
+		user: event.args.sender,
+		chainId: chainId,
+	}));
 
-    // Update or insert receiver balance
-    const receiverId = createBalanceId(chainId, currency, event.args.receiver);
+	// Update or insert receiver balance
+	const receiverId = createBalanceId(chainId, currency, event.args.receiver);
+>>>>>>> 3985bca (update voting handler)
 
+	await context.db
+		.insert(balances)
+		.values({
+			id: receiverId,
+			user: event.args.receiver,
+			chainId: chainId,
+			amount: netAmount,
+			lockedAmount: BigInt(0),
+			currency: currency,
+		})
+		.onConflictDoUpdate((row: any) => ({
+			amount: row.amount + netAmount,
+		}));
+
+<<<<<<< HEAD
     await context.db
         .insert(balances)
         .values({
@@ -160,13 +220,31 @@ export async function handleTransferFrom({event, context}: any) {
             });
         }
     }
+=======
+	// // Update or insert operator balance
+	const operatorId = createBalanceId(chainId, currency, event.args.operator);
+	await context.db
+		.insert(balances)
+		.values({
+			id: operatorId,
+			user: event.args.operator,
+			chainId: chainId,
+			amount: BigInt(event.args.feeAmount),
+			lockedAmount: BigInt(0),
+			currency: currency,
+		})
+		.onConflictDoUpdate((row: any) => ({
+			amount: row.amount + BigInt(event.args.feeAmount),
+		}));
+>>>>>>> 3985bca (update voting handler)
 }
 
-export async function handleTransferLockedFrom({event, context}: any) {
-    const chainId = context.network.chainId;
-    const netAmount = BigInt(event.args.amount) - BigInt(event.args.feeAmount);
-    const currency = getAddress(fromId(event.args.id));
+export async function handleTransferLockedFrom({ event, context }: any) {
+	const chainId = context.network.chainId;
+	const netAmount = BigInt(event.args.amount) - BigInt(event.args.feeAmount);
+	const currency = getAddress(fromId(event.args.id));
 
+<<<<<<< HEAD
     // Update sender locked balance
     const senderId = createBalanceId(chainId, currency, event.args.sender);
     await context.db
@@ -247,14 +325,56 @@ export async function handleTransferLockedFrom({event, context}: any) {
             });
         }
     }
+=======
+	// Update sender locked balance
+	const senderId = createBalanceId(chainId, currency, event.args.sender);
+	await context.db.update(balances, { id: senderId }).set((row: any) => ({
+		lockedAmount: row.lockedAmount - event.args.amount,
+		user: event.args.sender,
+		chainId: chainId,
+	}));
+
+	// Update or insert receiver balance (unlocked)
+	const receiverId = createBalanceId(chainId, currency, event.args.receiver);
+	await context.db
+		.insert(balances)
+		.values({
+			id: receiverId,
+			user: event.args.receiver,
+			chainId: chainId,
+			amount: netAmount,
+			lockedAmount: BigInt(0),
+			currency: currency,
+		})
+		.onConflictDoUpdate((row: any) => ({
+			amount: row.amount + netAmount,
+		}));
+
+	// Update or insert operator balance (unlocked)
+	const operatorId = createBalanceId(chainId, currency, event.args.operator);
+	await context.db
+		.insert(balances)
+		.values({
+			id: operatorId,
+			user: event.args.operator,
+			chainId: chainId,
+			amount: BigInt(event.args.feeAmount),
+			lockedAmount: BigInt(0),
+			currency: currency,
+		})
+		.onConflictDoUpdate((row: any) => ({
+			amount: row.amount + BigInt(event.args.feeAmount),
+		}));
+>>>>>>> 3985bca (update voting handler)
 }
 
-export async function handleLock({event, context}: any) {
-    const chainId = context.network.chainId;
-    const user = event.args.user;
-    const currency = getAddress(fromId(event.args.id));
-    const balanceId = createBalanceId(chainId, currency, user);
+export async function handleLock({ event, context }: any) {
+	const chainId = context.network.chainId;
+	const user = event.args.user;
+	const currency = getAddress(fromId(event.args.id));
+	const balanceId = createBalanceId(chainId, currency, user);
 
+<<<<<<< HEAD
     await context.db
         .update(balances, {id: balanceId})
         .set((row: any) => ({
@@ -274,14 +394,21 @@ export async function handleLock({event, context}: any) {
             });
         }
     }
+=======
+	await context.db.update(balances, { id: balanceId }).set((row: any) => ({
+		amount: row.amount - BigInt(event.args.amount),
+		lockedAmount: row.lockedAmount + BigInt(event.args.amount),
+	}));
+>>>>>>> 3985bca (update voting handler)
 }
 
-export async function handleUnlock({event, context}: any) {
-    const chainId = context.network.chainId;
-    const user = event.args.user;
-    const currency = getAddress(fromId(event.args.id));
-    const balanceId = createBalanceId(chainId, currency, user);
+export async function handleUnlock({ event, context }: any) {
+	const chainId = context.network.chainId;
+	const user = event.args.user;
+	const currency = getAddress(fromId(event.args.id));
+	const balanceId = createBalanceId(chainId, currency, user);
 
+<<<<<<< HEAD
     await context.db
         .update(balances, {id: balanceId})
         .set((row: any) => ({
@@ -302,3 +429,10 @@ export async function handleUnlock({event, context}: any) {
         }
     }
 }
+=======
+	await context.db.update(balances, { id: balanceId }).set((row: any) => ({
+		lockedAmount: row.lockedAmount - BigInt(event.args.amount),
+		amount: row.amount + BigInt(event.args.amount),
+	}));
+}
+>>>>>>> 3985bca (update voting handler)

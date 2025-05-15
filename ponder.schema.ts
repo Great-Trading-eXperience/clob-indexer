@@ -197,32 +197,58 @@ export const marketMakers = onchainTable(
 	"pool_market_makers",
 	(t: any) => ({
 		id: t.text().primaryKey(),
+		name: t.text(),
+		symbol: t.text(),
 		chainId: t.integer().notNull(),
-		user: t.hex(),
-		poolId: t.hex().notNull(),
-		amount: t.bigint(),
-		lockedAmount: t.bigint(),
-		expiry: t.integer(),
+		marketMakerId: t.hex().notNull(),
+		// amount: t.bigint(),
+		// lockedAmount: t.bigint(),
 	}),
 	(table: any) => ({
 		chainIdIdx: index().on(table.chainId),
+		marketMakerIdx: index().on(table.marketMakerId),
 	})
 );
 
-export const velockPositions = onchainTable("velock_positions", (t: any) => ({
+export const votingPools = onchainTable(
+	"ve_pools",
+	t => ({
+		id: t.text().primaryKey(),
+		marketMakerId: t.hex(), // pools in vetoken perspective
+		chainId: t.integer().notNull(),
+		active: t.boolean(),
+	}),
+	table => ({
+		chainIdIdx: index().on(table.chainId),
+		marketMakerIdx: index().on(table.marketMakerId),
+	})
+);
+
+export const velockPositions = onchainTable("velock_positions", t => ({
 	id: t.text().primaryKey(),
+	chainId: t.integer().notNull(),
 	user: t.hex(),
-	poolId: t.hex().notNull(),
 	amount: t.bigint(),
-	lockedAmount: t.bigint(),
 	expiry: t.integer(),
 }));
 
 export const marketMakerRewards = onchainTable("market_maker_rewards", (t: any) => ({
 	id: t.text().primaryKey(),
-	name: t.text(),
-	symbol: t.text(),
+	marketMakerId: t.hex(),
+	amount: t.bigint(),
 }));
+
+// export const incentiveBalances = onchainTable(
+// 	"incentive_balances",
+// 	(t) => ({
+// 		id: t.text().primaryKey(),
+// 		chainId: t.integer().notNull(),
+// 		user: t.hex(),
+// 		amount: t.bigint(),
+// 		expiry: t.integer(),
+// 	}),
+// 	(table) => ({})
+// );
 
 export const votingEscrow = onchainTable(
 	"voting_escrow",
@@ -247,8 +273,9 @@ export const votes = onchainTable(
 		chainId: t.integer().notNull(),
 		user: t.hex(),
 		poolId: t.hex().notNull(),
-		amount: t.bigint(),
-		lockedAmount: t.bigint(),
+		// amount: t.bigint(),
+		// lockedAmount: t.bigint(),
+		weight: t.bigint(),
 		timestamp: t.integer(),
 		expiry: t.integer(),
 	}),

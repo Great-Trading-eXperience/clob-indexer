@@ -17,6 +17,20 @@ ponder.on(
 	}
 );
 
+ponder.on("MarketMaker:Transfer" as any, async ({ event, context }: any) => {
+	const marketMakerId = event.log.address!;
+
+	await context.db
+		.insert(marketMaker)
+		.values({
+			id: getAddress(event.args.to),
+			from: getAddress(event.args.from),
+			to: getAddress(event.args.to),
+			value: event.args.value,
+		})
+		.onConflictDoNothing();
+});
+
 ponder.on(
 	"MarketMaker:RedeemRewards" as any,
 	async ({ event, context }: any) => {
@@ -38,3 +52,73 @@ ponder.on(
 			.onConflictDoNothing();
 	}
 );
+
+// {
+// 	type: "event",
+// 	name: "Approval",
+// 	inputs: [
+// 		{
+// 			name: "owner",
+// 			type: "address",
+// 			indexed: true,
+// 			internalType: "address",
+// 		},
+// 		{
+// 			name: "spender",
+// 			type: "address",
+// 			indexed: true,
+// 			internalType: "address",
+// 		},
+// 		{
+// 			name: "value",
+// 			type: "uint256",
+// 			indexed: false,
+// 			internalType: "uint256",
+// 		},
+// 	],
+// 	anonymous: false,
+// },
+// {
+// 	type: "event",
+// 	name: "RedeemRewards",
+// 	inputs: [
+// 		{
+// 			name: "user",
+// 			type: "address",
+// 			indexed: true,
+// 			internalType: "address",
+// 		},
+// 		{
+// 			name: "rewardsOut",
+// 			type: "uint256[]",
+// 			indexed: false,
+// 			internalType: "uint256[]",
+// 		},
+// 	],
+// 	anonymous: false,
+// },
+// {
+// 	type: "event",
+// 	name: "Transfer",
+// 	inputs: [
+// 		{
+// 			name: "from",
+// 			type: "address",
+// 			indexed: true,
+// 			internalType: "address",
+// 		},
+// 		{
+// 			name: "to",
+// 			type: "address",
+// 			indexed: true,
+// 			internalType: "address",
+// 		},
+// 		{
+// 			name: "value",
+// 			type: "uint256",
+// 			indexed: false,
+// 			internalType: "uint256",
+// 		},
+// 	],
+// 	anonymous: false,
+// },
