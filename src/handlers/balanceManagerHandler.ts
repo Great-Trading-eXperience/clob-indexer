@@ -7,11 +7,7 @@ function fromId(id: number): string {
 	return `0x${id.toString(16).padStart(40, "0")}`;
 }
 
-async function fetchBalance(
-	client: any,
-	address: string,
-	args: [user: string, currency: string, operator: string]
-) {
+async function fetchBalance(client: any, address: string, args: [user: string, currency: string, operator: string]) {
 	const [user, currency, operator] = args;
 	try {
 		const [balance, lockedBalance] = await client.multicall({
@@ -33,31 +29,17 @@ async function fetchBalance(
 
 		return {
 			balance: balance.status === "success" ? balance.result : BigInt(0),
-			lockedBalance:
-				lockedBalance.status === "success" ? lockedBalance.result : BigInt(0),
+			lockedBalance: lockedBalance.status === "success" ? lockedBalance.result : BigInt(0),
 		};
 	} catch {
 		return {
-			balance: await safeReadContract(client, address, "getBalance", [
-				user,
-				currency,
-			]),
-			lockedBalance: await safeReadContract(
-				client,
-				address,
-				"getLockedBalance",
-				[user, operator, currency]
-			),
+			balance: await safeReadContract(client, address, "getBalance", [user, currency]),
+			lockedBalance: await safeReadContract(client, address, "getLockedBalance", [user, operator, currency]),
 		};
 	}
 }
 
-async function safeReadContract(
-	client: any,
-	address: string,
-	functionName: string,
-	args: any[] = []
-) {
+async function safeReadContract(client: any, address: string, functionName: string, args: any[] = []) {
 	try {
 		return await client.readContract({
 			address,
