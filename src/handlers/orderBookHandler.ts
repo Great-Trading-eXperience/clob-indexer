@@ -105,7 +105,7 @@ export async function handleOrderMatched({ event, context }: any) {
     }).set((row: any) => ({
         price: BigInt(event.args.executionPrice),
         volume: BigInt(Number(row.volume)) + BigInt(Number(event.args.executedQuantity)),
-        volumeInQuote: BigInt(Number(row.volumeInQuote)) + BigInt((Number(event.args.executedQuantity) / Number(10 ** row.baseDecimals) * Number(event.args.executionPrice))),
+        volumeInQuote: BigInt(row.volumeInQuote) + (BigInt(event.args.executedQuantity) * BigInt(event.args.executionPrice)) / (BigInt(10) ** BigInt(row.baseDecimals)),
         timestamp: Number(event.args.timestamp)
     }));
 
