@@ -1,8 +1,8 @@
-import {index, onchainTable, relations} from "ponder";
+import { index, onchainTable, relations } from "ponder";
 
 export const pools = onchainTable(
 	"pools",
-	(t) => ({
+	t => ({
 		id: t.hex().primaryKey(),
 		chainId: t.integer().notNull(),
 		coin: t.varchar(),
@@ -53,7 +53,7 @@ export const orderHistory = onchainTable(
 		id: t.text().primaryKey(),
 		chainId: t.integer().notNull(),
 		poolId: t.hex().notNull(),
-		orderId: t.text(),
+		orderId: t.bigint().notNull(),
 		transactionId: t.text(),
 		timestamp: t.integer(),
 		filled: t.bigint(),
@@ -69,19 +69,19 @@ export const orderHistory = onchainTable(
 export const ordersRelations = relations(orders, ({ many, one }) => ({
 	orderHistory: many(orderHistory),
 	pool: one(pools, {
-		fields: [orders.poolId],
-		references: [pools.id],
+		fields: [orders.poolId, orders.chainId],
+		references: [pools.id, pools.chainId],
 	}),
 	user: one(balances, {
-		fields: [orders.user],
-		references: [balances.user],
+		fields: [orders.user, orders.chainId],
+		references: [balances.user, balances.chainId],
 	}),
 }));
 
 export const orderHistoryRelations = relations(orderHistory, ({ one }) => ({
 	order: one(orders, {
 		fields: [orderHistory.orderId],
-		references: [orders.id],
+		references: [orders.orderId],
 	}),
 	pool: one(pools, {
 		fields: [orderHistory.poolId],
@@ -91,17 +91,17 @@ export const orderHistoryRelations = relations(orderHistory, ({ one }) => ({
 
 export const trades = onchainTable(
 	"trades",
-	(t) => ({
+	t => ({
 		id: t.text().primaryKey(),
 		chainId: t.integer().notNull(),
 		transactionId: t.text(),
 		poolId: t.hex().notNull(),
-		orderId: t.text(),
+		orderId: t.text().notNull(),
 		price: t.bigint(),
 		quantity: t.bigint(),
 		timestamp: t.integer(),
 	}),
-	(table) => ({
+	table => ({
 		transactionIdx: index().on(table.transactionId),
 		poolIdx: index().on(table.poolId),
 		chainIdIdx: index().on(table.chainId),
@@ -118,7 +118,7 @@ export const tradeRelations = relations(trades, ({ one }) => ({
 
 export const orderBookTrades = onchainTable(
 	"order_book_trades",
-	(t) => ({
+	t => ({
 		id: t.text().primaryKey(),
 		chainId: t.integer().notNull(),
 		price: t.bigint(),
@@ -128,7 +128,7 @@ export const orderBookTrades = onchainTable(
 		side: t.varchar(),
 		poolId: t.hex().notNull(),
 	}),
-	(table) => ({
+	table => ({
 		transactionIdx: index().on(table.transactionId),
 		poolIdx: index().on(table.poolId),
 		chainIdIdx: index().on(table.chainId),
@@ -136,28 +136,31 @@ export const orderBookTrades = onchainTable(
 );
 
 const createBucketTable = (tableName: string) =>
-	onchainTable(tableName, (t) => ({
-	  id: t.text().primaryKey(),
+	onchainTable(
+		tableName,
+		t => ({
+			id: t.text().primaryKey(),
 			chainId: t.integer().notNull(),
-	  openTime: t.integer().notNull(),      
-	  closeTime: t.integer().notNull(),      
-	  open: t.real().notNull(),               
-	  high: t.real().notNull(),               
-	  low: t.real().notNull(),               
-	  close: t.real().notNull(),             
-	  volume: t.real().notNull(),             
-	  quoteVolume: t.real().notNull(),        
-	  count: t.integer().notNull(),           
-	  takerBuyBaseVolume: t.real().notNull(), 
-	  takerBuyQuoteVolume: t.real().notNull(),
-	  average: t.real().notNull(),            
-	  poolId: t.hex().notNull(),              
-	}),
-	(table) => ({
-	  openTimeIdx: index().on(table.openTime),
-	  poolIdx: index().on(table.poolId),
-		chainIdIdx: index().on(table.chainId),
-	}));
+			openTime: t.integer().notNull(),
+			closeTime: t.integer().notNull(),
+			open: t.real().notNull(),
+			high: t.real().notNull(),
+			low: t.real().notNull(),
+			close: t.real().notNull(),
+			volume: t.real().notNull(),
+			quoteVolume: t.real().notNull(),
+			count: t.integer().notNull(),
+			takerBuyBaseVolume: t.real().notNull(),
+			takerBuyQuoteVolume: t.real().notNull(),
+			average: t.real().notNull(),
+			poolId: t.hex().notNull(),
+		}),
+		table => ({
+			openTimeIdx: index().on(table.openTime),
+			poolIdx: index().on(table.poolId),
+			chainIdIdx: index().on(table.chainId),
+		})
+	);
 
 export const minuteBuckets = createBucketTable("minute_buckets");
 export const fiveMinuteBuckets = createBucketTable("five_minute_buckets");
@@ -167,7 +170,7 @@ export const dailyBuckets = createBucketTable("daily_buckets");
 
 export const balances = onchainTable(
 	"balances",
-	(t) => ({
+	t => ({
 		id: t.text().primaryKey(),
 		chainId: t.integer().notNull(),
 		user: t.hex(),
@@ -175,7 +178,7 @@ export const balances = onchainTable(
 		amount: t.bigint(),
 		lockedAmount: t.bigint(),
 	}),
-	(table) => ({
+	table => ({
 		currencyIdx: index().on(table.currency),
 		chainIdIdx: index().on(table.chainId),
 	})
@@ -183,7 +186,7 @@ export const balances = onchainTable(
 
 export const marketMakers = onchainTable(
 	"market_makers",
-	(t) => ({
+	t => ({
 		id: t.text().primaryKey(),
 		chainId: t.integer().notNull(),
 		user: t.hex(),
@@ -192,14 +195,14 @@ export const marketMakers = onchainTable(
 		lockedAmount: t.bigint(),
 		expiry: t.integer(),
 	}),
-	(table) => ({
+	table => ({
 		chainIdIdx: index().on(table.chainId),
 	})
-)
+);
 
 export const velockPositions = onchainTable(
 	"velock_positions",
-	(t) => ({
+	t => ({
 		id: t.text().primaryKey(),
 		chainId: t.integer().notNull(),
 		user: t.hex(),
@@ -208,14 +211,14 @@ export const velockPositions = onchainTable(
 		lockedAmount: t.bigint(),
 		expiry: t.integer(),
 	}),
-	(table) => ({
+	table => ({
 		chainIdIdx: index().on(table.chainId),
 	})
 );
 
 export const votes = onchainTable(
 	"votes",
-	(t) => ({
+	t => ({
 		id: t.text().primaryKey(),
 		chainId: t.integer().notNull(),
 		user: t.hex(),
@@ -225,14 +228,14 @@ export const votes = onchainTable(
 		timestamp: t.integer(),
 		expiry: t.integer(),
 	}),
-	(table) => ({
+	table => ({
 		chainIdIdx: index().on(table.chainId),
 	})
 );
 
 export const currencies = onchainTable(
 	"currencies",
-	(t) => ({
+	t => ({
 		id: t.text().primaryKey(),
 		chainId: t.integer().notNull(),
 		address: t.hex().notNull(),
@@ -240,8 +243,26 @@ export const currencies = onchainTable(
 		symbol: t.varchar(),
 		decimals: t.integer(),
 	}),
-	(table) => ({
+	table => ({
 		chainIdIdx: index().on(table.chainId),
 		addressIdx: index().on(table.address),
 	})
 );
+
+export const poolsCurrenciesRelations = relations(pools, ({ one }) => ({
+	baseCurrency: one(currencies, {
+		fields: [pools.baseCurrency, pools.chainId],
+		references: [currencies.address, currencies.chainId],
+	}),
+	quoteCurrency: one(currencies, {
+		fields: [pools.quoteCurrency, pools.chainId],
+		references: [currencies.address, currencies.chainId],
+	}),
+}));
+
+export const balancesCurrenciesRelations = relations(balances, ({ one }) => ({
+	currency: one(currencies, {
+		fields: [balances.currency, balances.chainId],
+		references: [currencies.address, currencies.chainId],
+	}),
+}));
