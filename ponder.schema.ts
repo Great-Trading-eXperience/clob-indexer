@@ -1,4 +1,4 @@
-import {index, onchainTable, relations} from "ponder";
+import { index, onchainTable, relations } from "ponder";
 
 export const pools = onchainTable(
 	"pools",
@@ -53,7 +53,7 @@ export const orderHistory = onchainTable(
 		id: t.text().primaryKey(),
 		chainId: t.integer().notNull(),
 		poolId: t.hex().notNull(),
-		orderId: t.text(),
+		orderId: t.bigint().notNull(),
 		transactionId: t.text(),
 		timestamp: t.integer(),
 		filled: t.bigint(),
@@ -69,19 +69,19 @@ export const orderHistory = onchainTable(
 export const ordersRelations = relations(orders, ({ many, one }) => ({
 	orderHistory: many(orderHistory),
 	pool: one(pools, {
-		fields: [orders.poolId],
-		references: [pools.id],
+		fields: [orders.poolId, orders.chainId],
+		references: [pools.id, pools.chainId],
 	}),
 	user: one(balances, {
-		fields: [orders.user],
-		references: [balances.user],
+		fields: [orders.user, orders.chainId],
+		references: [balances.user, balances.chainId],
 	}),
 }));
 
 export const orderHistoryRelations = relations(orderHistory, ({ one }) => ({
 	order: one(orders, {
 		fields: [orderHistory.orderId],
-		references: [orders.id],
+		references: [orders.orderId],
 	}),
 	pool: one(pools, {
 		fields: [orderHistory.poolId],
@@ -96,7 +96,7 @@ export const trades = onchainTable(
 		chainId: t.integer().notNull(),
 		transactionId: t.text(),
 		poolId: t.hex().notNull(),
-		orderId: t.text(),
+		orderId: t.hex().notNull(),
 		price: t.bigint(),
 		quantity: t.bigint(),
 		timestamp: t.integer(),
@@ -136,28 +136,31 @@ export const orderBookTrades = onchainTable(
 );
 
 const createBucketTable = (tableName: string) =>
-	onchainTable(tableName, (t) => ({
-	  id: t.text().primaryKey(),
+	onchainTable(
+		tableName,
+		(t) => ({
+			id: t.text().primaryKey(),
 			chainId: t.integer().notNull(),
-	  openTime: t.integer().notNull(),      
-	  closeTime: t.integer().notNull(),      
-	  open: t.real().notNull(),               
-	  high: t.real().notNull(),               
-	  low: t.real().notNull(),               
-	  close: t.real().notNull(),             
-	  volume: t.real().notNull(),             
-	  quoteVolume: t.real().notNull(),        
-	  count: t.integer().notNull(),           
-	  takerBuyBaseVolume: t.real().notNull(), 
-	  takerBuyQuoteVolume: t.real().notNull(),
-	  average: t.real().notNull(),            
-	  poolId: t.hex().notNull(),              
-	}),
-	(table) => ({
-	  openTimeIdx: index().on(table.openTime),
-	  poolIdx: index().on(table.poolId),
-		chainIdIdx: index().on(table.chainId),
-	}));
+			openTime: t.integer().notNull(),
+			closeTime: t.integer().notNull(),
+			open: t.real().notNull(),
+			high: t.real().notNull(),
+			low: t.real().notNull(),
+			close: t.real().notNull(),
+			volume: t.real().notNull(),
+			quoteVolume: t.real().notNull(),
+			count: t.integer().notNull(),
+			takerBuyBaseVolume: t.real().notNull(),
+			takerBuyQuoteVolume: t.real().notNull(),
+			average: t.real().notNull(),
+			poolId: t.hex().notNull(),
+		}),
+		(table) => ({
+			openTimeIdx: index().on(table.openTime),
+			poolIdx: index().on(table.poolId),
+			chainIdIdx: index().on(table.chainId),
+		})
+	);
 
 export const minuteBuckets = createBucketTable("minute_buckets");
 export const fiveMinuteBuckets = createBucketTable("five_minute_buckets");
@@ -195,7 +198,7 @@ export const marketMakers = onchainTable(
 	(table) => ({
 		chainIdIdx: index().on(table.chainId),
 	})
-)
+);
 
 export const velockPositions = onchainTable(
 	"velock_positions",
@@ -245,3 +248,21 @@ export const currencies = onchainTable(
 		addressIdx: index().on(table.address),
 	})
 );
+
+export const poolsCurrenciesRelations = relations(pools, ({ one }) => ({
+	baseCurrency: one(currencies, {
+		fields: [pools.baseCurrency, pools.chainId],
+		references: [currencies.address, currencies.chainId],
+	}),
+	quoteCurrency: one(currencies, {
+		fields: [pools.quoteCurrency, pools.chainId],
+		references: [currencies.address, currencies.chainId],
+	}),
+}));
+
+export const balancesCurrenciesRelations = relations(balances, ({ one }) => ({
+	currency: one(currencies, {
+		fields: [balances.currency, balances.chainId],
+		references: [currencies.address, currencies.chainId],
+	}),
+}));
