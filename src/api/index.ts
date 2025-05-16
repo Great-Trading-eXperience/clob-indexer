@@ -83,8 +83,6 @@ app.get("/api/kline", async (c) => {
 
   const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
 
-  console.log('queriedPools', queriedPools);
-
   // In a production scenario, uncomment this to ensure the pool exists
   if (!queriedPools || queriedPools.length === 0) {
     return c.json({ error: "Pool not found" }, 404);
@@ -102,7 +100,7 @@ app.get("/api/kline", async (c) => {
   const bucketTable = intervalTableMap[interval as IntervalType] || minuteBuckets;
 
   try {
-    const poolId = queriedPools[0]!.id;
+    const poolId = queriedPools[0]!.orderBook;
 
     const klineData = await db
       .select()

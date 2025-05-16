@@ -65,7 +65,7 @@ export async function handlePoolCreated({ event, context }: any) {
 
 	const coin = `${baseData.symbol}/${quoteData.symbol}`;
 	const orderBook = getAddress(event.args.orderBook);
-	const poolId = createPoolId(chainId, baseCurrency, quoteCurrency, orderBook);
+	const poolId = createPoolId(chainId, orderBook);
 
 	await db
 		.insert(pools)
@@ -78,6 +78,9 @@ export async function handlePoolCreated({ event, context }: any) {
 			quoteCurrency,
 			baseDecimals: baseData.decimals,
 			quoteDecimals: quoteData.decimals,
+			volume: BigInt(0),
+			volumeInQuote: BigInt(0),
+			price: BigInt(0),
 			timestamp: Number(event.block.timestamp),
 		})
 		.onConflictDoNothing();

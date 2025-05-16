@@ -11,6 +11,9 @@ export const pools = onchainTable(
 		quoteCurrency: t.hex().notNull(),
 		baseDecimals: t.integer(),
 		quoteDecimals: t.integer(),
+		volume: t.bigint(),
+		volumeInQuote: t.bigint(),
+		price: t.bigint(),
 		timestamp: t.integer(),
 	}),
 	(table: any) => ({
