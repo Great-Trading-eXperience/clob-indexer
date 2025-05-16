@@ -5,12 +5,13 @@ import {
 	orderBookTrades,
 	orderHistory,
 	orders,
+	pools,
 	thirtyMinuteBuckets,
 	trades,
 } from "ponder:schema";
 import { minuteBuckets } from "../../ponder.schema";
 import { ORDER_STATUS, TIME_INTERVALS } from "../utils/constants";
-import { createOrderHistoryId, createOrderId, createTradeId } from "../utils/hash";
+import { createOrderHistoryId, createOrderId, createPoolId, createTradeId } from "../utils/hash";
 import { updateCandlestickBucket } from "../utils/candlestick";
 import { getPoolTokenDecimals } from "../utils/getPoolTokenDecimals";
 
@@ -96,6 +97,17 @@ export async function handleOrderMatched({ event, context }: any) {
 		side: event.args.side ? "Sell" : "Buy",
 		poolId: event.log.address!,
 	});
+
+    const poolId = createPoolId(chainId, event.log.address!);
+
+    await context.db.update(pools, {
+        id: poolId
+    }).set((row: any) => ({
+        price: BigInt(event.args.executionPrice),
+        volume: BigInt(Number(row.volume)) + BigInt(Number(event.args.executedQuantity)),
+        volumeInQuote: BigInt(Number(row.volumeInQuote)) + BigInt((Number(event.args.executedQuantity) / Number(10 ** row.baseDecimals) * Number(event.args.executionPrice))),
+        timestamp: Number(event.args.timestamp)
+    }));
 
 	const buyOrderId = createOrderId(BigInt(event.args.buyOrderId!), event.log.address!, chainId);
 
