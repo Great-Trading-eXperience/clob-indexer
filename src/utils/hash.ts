@@ -36,9 +36,9 @@ export function createOrderHistoryId(txHash: string, filled: bigint, chainId: nu
         .digest("hex");
 }
 
-export function createPoolId(chainId: number, baseCurrency: string, quoteCurrency: string, orderBook: string): string {
+export function createPoolId(chainId: number, orderBook: string): string {
     return createHash("sha256")
-        .update(`${chainId}_${baseCurrency}_${quoteCurrency}_${orderBook}`)
+        .update(`${chainId}_${orderBook}`)
         .digest("hex");
 }
 
