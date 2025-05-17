@@ -23,6 +23,7 @@ const rl = readline.createInterface({
 });
 
 let ws: WebSocket | null = null;
+let userWs: WebSocket | null = null;
 let pingInterval: NodeJS.Timeout | null = null;
 let reconnectTimeout: NodeJS.Timeout | null = null;
 let isConnecting = false;
@@ -100,6 +101,39 @@ function connect(): void {
   });
 }
 
+function connectUser(address: string): void {
+  if (userWs && userWs.readyState === WebSocket.OPEN) {
+    log(colors.yellow, "USER", "Closing previous user socket");
+    userWs.close();
+  }
+
+  const url = `${config.url.replace(/\/$/, "")}/ws/${address.toLowerCase()}`;
+  log(colors.blue, "USER", `Connecting to ${url} ...`);
+
+  userWs = new WebSocket(url);
+
+  userWs.on("open", () => {
+    log(colors.green, "USER", "User socket connected");
+  });
+
+  userWs.on("message", (buf) => {
+    try {
+      const msg = JSON.parse(buf.toString());
+      log(colors.cyan, "USRMSG", JSON.stringify(msg, null, 2));
+    } catch {
+      log(colors.red, "USRERR", buf.toString());
+    }
+  });
+
+  userWs.on("close", () => {
+    log(colors.yellow, "USER", "User socket closed");
+  });
+
+  userWs.on("error", (err) => {
+    log(colors.red, "USER", `User socket error: ${err.message}`);
+  });
+}
+
 function processCommand(input: string): void {
   const command = input.trim();
 
@@ -112,6 +146,8 @@ function processCommand(input: string): void {
   ${colors.cyan}ping${colors.reset}                  - Send a ping message
   ${colors.cyan}reconnect${colors.reset}             - Reconnect to the WebSocket server
   ${colors.cyan}exit${colors.reset}                  - Exit the application
+  ${colors.cyan}user <wallet>${colors.reset}          - Open user-data socket for wallet
+  ${colors.cyan}closeuser${colors.reset}              - Close user-data socket
     `);
     return;
   }
@@ -121,8 +157,27 @@ function processCommand(input: string): void {
     if (ws) ws.close();
     if (pingInterval) clearInterval(pingInterval);
     if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    if (userWs) userWs.close();
     rl.close();
     process.exit(0);
+    return;
+  }
+  if (command.startsWith("user ")) {
+    const addr = command.substring(5).trim();
+    if (!addr) {
+      log(colors.red, "ERROR", "Provide wallet address");
+    } else {
+      connectUser(addr);
+    }
+    return;
+  }
+
+  if (command === "closeuser") {
+    if (userWs && userWs.readyState === WebSocket.OPEN) {
+      userWs.close();
+    } else {
+      log(colors.yellow, "USER", "No user socket open");
+    }
     return;
   }
 
@@ -188,5 +243,6 @@ rl.on("close", () => {
   if (ws) ws.close();
   if (pingInterval) clearInterval(pingInterval);
   if (reconnectTimeout) clearTimeout(reconnectTimeout);
+  if (userWs) userWs.close();
   process.exit(0);
 });
