@@ -46,13 +46,18 @@ ACK   { id: 2, result: ['ethusdc@depth5@100ms'] }
 
 ## 🧩 Personal user streams
 
-To receive your own order/trade and balance events, open a second socket:
+To receive your own order/trade and balance events, run:
 
+> user 0xYourWalletAddress
+
+This opens a second socket to:
   ws://localhost:42080/ws/0xYourWalletAddress
 
-No subscribe command needed; server pushes:
+No `subscribe` command is needed. Server pushes:
   • executionReport   (order status, fills)
-  • balanceUpdate     (deposits, withdrawals, fees)
+  • balanceUpdate     (deposits, withdrawals, locks, unlocks)
+
+Use `closeuser` to manually disconnect the user socket.
 
 ## Color legend
 
