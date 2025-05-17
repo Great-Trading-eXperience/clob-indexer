@@ -1,0 +1,18 @@
+# Use official Node.js image
+FROM node:22
+
+# Install pnpm globally
+RUN npm install -g pnpm ts-node typescript
+
+# Set workdir
+WORKDIR /app
+
+# Copy package files and install dependencies
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm install
+
+# Copy the rest of the app
+COPY . .
+
+# Run the bot
+CMD ["ts-node", "--loader", "ts-node/esm", "rise-shred-bot.ts"]

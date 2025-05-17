@@ -15,9 +15,20 @@ services:
     env_file:
       - .env
     ports:
-      - "42069:42069"
+      - "42071:42069"
     depends_on:
       - postgres
+    restart: always
+
+  shred-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile-bot
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - ponder
     restart: always
 
 volumes:

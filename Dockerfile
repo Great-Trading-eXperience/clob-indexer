@@ -15,15 +15,15 @@ RUN pnpm install
 COPY . .
 
 # Expose ponder port
-EXPOSE 42069
+EXPOSE 42071
 
 EXPOSE 54321
 
 # Crash recovery: restart ponder on crash, using $timestamp as schema
-CMD while true; do \
-        pnpm ponder db prune \
-        TIMESTAMP=$(date +%s); \
-        pnpm ponder start --schema public_$TIMESTAMP; \
-        echo "Ponder crashed. Restarting in 5 seconds..."; \
-        sleep 5; \
-    done
+CMD sh -c 'while true; do \
+    pnpm ponder db prune; \
+    TIMESTAMP=$(date +%s); \
+    pnpm ponder start --schema public_$TIMESTAMP; \
+    echo "Ponder crashed. Restarting in 5 seconds..."; \
+    sleep 5; \
+done'
