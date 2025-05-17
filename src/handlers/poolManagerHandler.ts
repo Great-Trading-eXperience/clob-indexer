@@ -1,7 +1,13 @@
-import { currencies, pools } from "ponder:schema";
-import { ERC20ABI } from "../../abis/ERC20";
-import { Address, getAddress, toHex } from "viem";
-import { createCurrencyId, createPoolId } from "../utils/hash";
+import {currencies, pools} from "ponder:schema";
+import {ERC20ABI} from "../../abis/ERC20";
+import {Address, getAddress, toHex} from "viem";
+import {createCurrencyId, createPoolId} from "../utils/hash";
+import { pushMiniTicker } from "../websocket/broadcaster";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const ENABLED_WEBSOCKET = process.env.ENABLE_WEBSOCKET === 'true';
 
 async function fetchTokenData(client: any, address: string) {
 	try {
@@ -67,21 +73,25 @@ export async function handlePoolCreated({ event, context }: any) {
 	const orderBook = getAddress(event.args.orderBook);
 	const poolId = createPoolId(chainId, orderBook);
 
-	await db
-		.insert(pools)
-		.values({
-			id: poolId,
-			chainId,
-			coin,
-			orderBook,
-			baseCurrency,
-			quoteCurrency,
-			baseDecimals: baseData.decimals,
-			quoteDecimals: quoteData.decimals,
-			volume: BigInt(0),
-			volumeInQuote: BigInt(0),
-			price: BigInt(0),
-			timestamp: Number(event.block.timestamp),
-		})
-		.onConflictDoNothing();
+    const poolId = createPoolId(chainId, orderBook);
+
+    await db
+        .insert(pools)
+        .values({
+            id: poolId,
+            chainId,
+            coin,
+            orderBook,
+            baseCurrency,
+            quoteCurrency,
+            baseDecimals: baseData.decimals,
+            quoteDecimals: quoteData.decimals,
+            timestamp: Number(event.block.timestamp),
+        })
+        .onConflictDoNothing();
+
+    if (ENABLED_WEBSOCKET) {
+        const symbol = coin.replace('/', '').toLowerCase();
+        pushMiniTicker(symbol, "0", "0", "0", "0");
+    }
 }

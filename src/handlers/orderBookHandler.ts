@@ -1,3 +1,4 @@
+import { and, eq, or } from "ponder";
 import {
 	dailyBuckets,
 	fiveMinuteBuckets,
@@ -12,34 +13,75 @@ import {
 import { minuteBuckets } from "../../ponder.schema";
 import { ORDER_STATUS, TIME_INTERVALS } from "../utils/constants";
 import { createOrderHistoryId, createOrderId, createPoolId, createTradeId } from "../utils/hash";
-import { updateCandlestickBucket } from "../utils/candlestick";
-import { getPoolTokenDecimals } from "../utils/getPoolTokenDecimals";
+import { pushDepth, pushExecutionReport, pushTrade, pushMiniTicker } from "../websocket/broadcaster";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const ENABLED_WEBSOCKET = process.env.ENABLE_WEBSOCKET === 'true';
+
+const symbolFromPool = async (context: any, pool: string, chainId: string) => {
+    const poolData = (await context.db.sql.select().from(pools).where(eq(pools.orderBook, pool), eq(pools.chainId, chainId)).execute())[0];
+    return poolData.coin.replace('/', '').toLowerCase();
+};
+
+async function depth(pool: string, ctx: any) {
+    const bids = await ctx.db.sql.select().from(orders).where(and(eq(orders.poolId, pool), eq(orders.side, "Buy"), or(eq(orders.status, "OPEN"), eq(orders.status, "PARTIALLY_FILLED")))).orderBy(orders.price, "desc").limit(50).execute();
+    const asks = await ctx.db.sql.select().from(orders).where(and(eq(orders.poolId, pool), eq(orders.side, "Sell"), or(eq(orders.status, "OPEN"), eq(orders.status, "PARTIALLY_FILLED")))).orderBy(orders.price, "asc").limit(50).execute();
+    return {
+        bids: bids.map((o: any) => [o.price.toString(), (o.quantity - o.filled).toString()]),
+        asks: asks.map((o: any) => [o.price.toString(), (o.quantity - o.filled).toString()])
+    };
+}
+
+function exec(symbol: string, user: string, order: any, execType: string, status: string, lastQty: bigint, lastPrice: bigint, ts: number) {
+    pushExecutionReport(user, {
+        e: "executionReport",
+        E: ts,
+        s: symbol,
+        i: order.orderId.toString(),
+        S: order.side.toUpperCase(),
+        o: order.type.toUpperCase(),
+        X: status,
+        x: execType,
+        q: order.quantity.toString(),
+        z: order.filled.toString(),
+        l: lastQty.toString(),
+        p: order.price.toString(),
+        L: lastPrice.toString(),
+        T: ts
+    });
+}
 
 export async function handleOrderPlaced({ event, context }: any) {
-	try {
-		const chainId = context.network.chainId;
-		const id = createOrderId(BigInt(event.args.orderId!), event.log.address!, chainId);
+    try {
+        const chainId = context.network.chainId;
+        const symbol = (await symbolFromPool(context, event.log.address!, chainId)).toUpperCase();
+        const id = createOrderId(BigInt(event.args.orderId!), event.log.address!, chainId);
 
-		await context.db
-			.insert(orders)
-			.values({
-				id: id,
-				chainId: chainId,
-				transactionId: event.transaction.hash.toString(),
-				user: event.args.user,
-				poolId: event.log.address!,
-				orderId: BigInt(event.args.orderId!),
-				side: event.args.side ? "Sell" : "Buy",
-				timestamp: Number(event.block.timestamp),
-				price: BigInt(event.args.price),
-				quantity: BigInt(event.args.quantity),
-				orderValue: BigInt(event.args.price) * BigInt(event.args.quantity),
-				filled: BigInt(0),
-				type: event.args.isMarketOrder ? "Market" : "Limit",
-				status: ORDER_STATUS[Number(event.args.status)],
-				expiry: Number(event.args.expiry),
-			})
-			.onConflictDoNothing();
+        console.log('chainId', chainId)
+        console.log('symbol', symbol)
+        console.log('id', id)
+
+        await context.db
+            .insert(orders)
+            .values({
+                id: id,
+                chainId: chainId,
+                user: event.args.user,
+                poolId: event.log.address!,
+                orderId: BigInt(event.args.orderId!),
+                side: event.args.side ? "Sell" : "Buy",
+                timestamp: Number(event.block.timestamp),
+                price: BigInt(event.args.price),
+                quantity: BigInt(event.args.quantity),
+                orderValue: BigInt(event.args.price) * BigInt(event.args.quantity),
+                filled: BigInt(0),
+                type: event.args.isMarketOrder ? "Market" : "Limit",
+                status: ORDER_STATUS[Number(event.args.status)],
+                expiry: Number(event.args.expiry),
+            })
+            .onConflictDoNothing();
 
 		const orderHistoryId = createOrderHistoryId(
 			event.transaction.hash.toString(),
@@ -49,32 +91,40 @@ export async function handleOrderPlaced({ event, context }: any) {
 			event.args.orderId.toString()
 		);
 
-		await context.db
-			.insert(orderHistory)
-			.values({
-				id: orderHistoryId,
-				chainId: chainId,
-				transactionId: event.transaction.hash.toString(),
-				orderId: BigInt(event.args.orderId!),
-				poolId: event.log.address!,
-				timestamp: Number(event.block.timestamp),
-				quantity: BigInt(event.args.quantity),
-				filled: BigInt(0),
-				status: ORDER_STATUS[Number(event.args.status)],
-			})
-			.onConflictDoUpdate((row: any) => ({
-				timestamp: Number(event.block.timestamp),
-				quantity: BigInt(event.args.quantity),
-				filled: BigInt(0),
-				status: ORDER_STATUS[Number(event.args.status)],
-			}));
-	} catch (e) {
-		console.log("Error in OrderPlaced", e);
-	}
+        await context.db
+            .insert(orderHistory)
+            .values({
+                id: orderHistoryId,
+                chainId: chainId,
+                orderId: event.args.orderId.toString(),
+                poolId: event.log.address!,
+                timestamp: Number(event.block.timestamp),
+                quantity: BigInt(event.args.quantity),
+                filled: BigInt(0),
+                status: ORDER_STATUS[Number(event.args.status)],
+            })
+            .onConflictDoUpdate((row: any) => ({
+                timestamp: Number(event.block.timestamp),
+                quantity: BigInt(event.args.quantity),
+                filled: BigInt(0),
+                status: ORDER_STATUS[Number(event.args.status)],
+            }));
+
+        if (ENABLED_WEBSOCKET) {
+            const order = (await context.db.sql.select().from(orders).where(eq(orders.id, id)).execute())[0];
+            exec(symbol.toLowerCase(), order.user, order, "NEW", "NEW", BigInt(0), BigInt(0), Number(event.block.timestamp));
+
+            const latestDepth = await depth(event.log.address!, context);
+            pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
+        }
+    } catch (e) {
+        console.log("Error in OrderPlaced", e);
+    }
 }
 
 export async function handleOrderMatched({ event, context }: any) {
-	const chainId = context.network.chainId;
+    const chainId = context.network.chainId;
+    const symbol = (await symbolFromPool(context, event.log.address!, chainId)).toUpperCase();
 
 	const tradeId = createTradeId(
 		event.transaction.hash,
@@ -185,53 +235,86 @@ export async function handleOrderMatched({ event, context }: any) {
 		console.log(`Using default decimals due to error: ${error}`);
 	}
 
-	for (const [table, seconds] of [
-		[minuteBuckets, TIME_INTERVALS.minute],
-		[fiveMinuteBuckets, TIME_INTERVALS.fiveMinutes],
-		[thirtyMinuteBuckets, TIME_INTERVALS.thirtyMinutes],
-		[hourBuckets, TIME_INTERVALS.hour],
-		[dailyBuckets, TIME_INTERVALS.day],
-	] as const) {
-		await updateCandlestickBucket(
-			table,
-			seconds,
-			BigInt(event.args.executionPrice),
-			BigInt(event.args.executedQuantity),
-			Number(event.args.timestamp),
-			context,
-			event,
-			isTakerBuy,
-			chainId,
-			baseDecimals,
-			quoteDecimals
-		);
-	}
+    for (const [table, seconds] of [
+        [minuteBuckets, TIME_INTERVALS.minute],
+        [fiveMinuteBuckets, TIME_INTERVALS.fiveMinutes],
+        [thirtyMinuteBuckets, TIME_INTERVALS.thirtyMinutes],
+        [hourBuckets, TIME_INTERVALS.hour],
+        [dailyBuckets, TIME_INTERVALS.day],
+    ] as const) {
+        await updateCandlestickBucket(
+            table,
+            seconds,
+            BigInt(event.args.executionPrice),
+            BigInt(event.args.executedQuantity),
+            Number(event.block.timestamp),
+            context,
+            event,
+            isTakerBuy,
+            chainId,
+            baseDecimals,
+            quoteDecimals
+        );
+    }
+
+    if (ENABLED_WEBSOCKET) {
+        pushTrade(symbol, Number(event.args.timestamp), event.args.executionPrice.toString(), event.args.executedQuantity.toString(), !!event.args.side, Number(event.args.timestamp));
+
+        const buyRow = (await context.db.sql.select().from(orders).where(eq(orders.orderId, BigInt(event.args.buyOrderId!))).execute())[0];
+        const sellRow = (await context.db.sql.select().from(orders).where(eq(orders.orderId, BigInt(event.args.sellOrderId!))).execute())[0];
+
+        if (buyRow) exec(symbol, buyRow.user, buyRow, "TRADE", buyRow.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), Number(event.args.timestamp));
+        if (sellRow) exec(symbol, sellRow.user, sellRow, "TRADE", sellRow.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), Number(event.args.timestamp));
+
+        const latestDepth = await depth(event.log.address!, context);
+        pushDepth(symbol, latestDepth.bids as any, latestDepth.asks as any);
+
+        // Broadcast a mini‑ticker so front‑ends get last price/volume widgets
+        pushMiniTicker(
+            symbol.toLowerCase(),
+            event.args.executionPrice.toString(), // close / last price
+            event.args.executionPrice.toString(), // high (stub)
+            event.args.executionPrice.toString(), // low  (stub)
+            event.args.executedQuantity.toString() // volume (stub)
+        );
+    }
 }
 
 export async function handleOrderCancelled({ event, context }: any) {
-	const chainId = context.network.chainId;
-	const id = createOrderId(BigInt(event.args.orderId!), event.log.address!, chainId);
+    const chainId = context.network.chainId;
+    const symbol = (await symbolFromPool(context, event.log.address!, chainId)).toUpperCase();
+    const id = createOrderId(BigInt(event.args.orderId!), event.log.address!, chainId);
 
-	await context.db
-		.update(orders, {
-			id: id,
-			chainId: chainId,
-		})
-		.set((row: any) => ({
-			status: ORDER_STATUS[Number(event.args.status)],
-			timestamp: event.args.timestamp,
-		}));
+    await context.db.update(orders, {
+        id: id,
+        chainId: chainId
+    }).set((row: any) => ({
+        status: ORDER_STATUS[Number(event.args.status)],
+        timestamp: event.args.timestamp,
+    }));
+
+    if (ENABLED_WEBSOCKET) {
+        const row = (await context.db.sql.select().from(orders).where(eq(orders.id, id)).execute())[0];
+
+        if (!row) return;
+
+        exec(symbol, row.user, row, "CANCELED", "CANCELED", BigInt(0), BigInt(0), Number(event.args.timestamp));
+        const latestDepth = await depth(event.log.address!, context);
+        pushDepth(symbol, latestDepth.bids as any, latestDepth.asks as any);
+    }
 }
 
 export async function handleUpdateOrder({ event, context }: any) {
-	const chainId = context.network.chainId;
-	const orderHistoryId = createOrderHistoryId(
-		event.transaction.hash,
-		event.args.filled,
-		chainId,
-		event.log.address!,
-		event.args.orderId.toString()
-	);
+    const chainId = context.network.chainId;
+    const symbol = (await symbolFromPool(context, event.log.address!, chainId)).toUpperCase();
+    
+    const orderHistoryId = createOrderHistoryId(
+        event.transaction.hash,
+        event.args.filled,
+        chainId,
+        event.log.address!,
+        event.args.orderId.toString()
+    );
 
 	await context.db.insert(orderHistory).values({
 		id: orderHistoryId,
@@ -246,13 +329,21 @@ export async function handleUpdateOrder({ event, context }: any) {
 
 	const id = createOrderId(BigInt(event.args.orderId!), event.log.address!, chainId);
 
-	await context.db
-		.update(orders, {
-			id: id,
-			chainId: chainId,
-		})
-		.set((row: any) => ({
-			status: ORDER_STATUS[Number(event.args.status)],
-			timestamp: event.args.timestamp,
-		}));
+    await context.db.update(orders, {
+        id: id,
+        chainId: chainId
+    }).set((row: any) => ({
+        status: ORDER_STATUS[Number(event.args.status)],
+        timestamp: event.args.timestamp,
+    }));
+
+    if (ENABLED_WEBSOCKET) {
+        const row = (await context.db.sql.select().from(orders).where(eq(orders.id, id)).execute())[0];
+
+        if (!row) return;
+
+        exec(symbol, row.user, row, "TRADE", row.status, BigInt(event.args.filled), row.price, Number(event.args.timestamp));
+        const latestDepth = await depth(event.log.address!, context);
+        pushDepth(symbol, latestDepth.bids as any, latestDepth.asks as any);
+    }
 }
