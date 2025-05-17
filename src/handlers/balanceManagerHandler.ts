@@ -10,7 +10,7 @@ dotenv.config();
 const ENABLED_WEBSOCKET = process.env.ENABLE_WEBSOCKET === 'true';
 
 function fromId(id: number): string {
-	return `0x${id.toString(16).padStart(40, "0")}`;
+    return `0x${id.toString(16).padStart(40, "0")}`;
 }
 
 export async function handleDeposit({event, context}: any) {
@@ -74,12 +74,10 @@ export async function handleWithdrawal({event, context}: any) {
     }
 }
 
-export async function handleDeposit({ event, context }: any) {
-	const { db } = context;
-	const chainId = context.network.chainId;
-	const user = event.args.user;
-	const currency = getAddress(fromId(event.args.id));
-	const balanceId = createBalanceId(chainId, currency, user);
+export async function handleTransferFrom({event, context}: any) {
+    const chainId = context.network.chainId;
+    const netAmount = BigInt(event.args.amount) - BigInt(event.args.feeAmount);
+    const currency = getAddress(fromId(event.args.id));
 
     // Update or insert sender balance
     const senderId = createBalanceId(chainId, currency, event.args.sender);
@@ -164,11 +162,10 @@ export async function handleDeposit({ event, context }: any) {
     }
 }
 
-export async function handleWithdrawal({ event, context }: any) {
-	const chainId = context.network.chainId;
-	const user = event.args.user;
-	const currency = getAddress(toHex(event.args.id));
-	const balanceId = createBalanceId(chainId, currency, user);
+export async function handleTransferLockedFrom({event, context}: any) {
+    const chainId = context.network.chainId;
+    const netAmount = BigInt(event.args.amount) - BigInt(event.args.feeAmount);
+    const currency = getAddress(fromId(event.args.id));
 
     // Update sender locked balance
     const senderId = createBalanceId(chainId, currency, event.args.sender);
@@ -252,10 +249,11 @@ export async function handleWithdrawal({ event, context }: any) {
     }
 }
 
-export async function handleTransferFrom({ event, context }: any) {
-	const chainId = context.network.chainId;
-	const netAmount = BigInt(event.args.amount) - BigInt(event.args.feeAmount);
-	const currency = getAddress(fromId(event.args.id));
+export async function handleLock({event, context}: any) {
+    const chainId = context.network.chainId;
+    const user = event.args.user;
+    const currency = getAddress(fromId(event.args.id));
+    const balanceId = createBalanceId(chainId, currency, user);
 
     await context.db
         .update(balances, {id: balanceId})
@@ -278,10 +276,11 @@ export async function handleTransferFrom({ event, context }: any) {
     }
 }
 
-export async function handleTransferLockedFrom({ event, context }: any) {
-	const chainId = context.network.chainId;
-	const netAmount = BigInt(event.args.amount) - BigInt(event.args.feeAmount);
-	const currency = getAddress(fromId(event.args.id));
+export async function handleUnlock({event, context}: any) {
+    const chainId = context.network.chainId;
+    const user = event.args.user;
+    const currency = getAddress(fromId(event.args.id));
+    const balanceId = createBalanceId(chainId, currency, user);
 
     await context.db
         .update(balances, {id: balanceId})

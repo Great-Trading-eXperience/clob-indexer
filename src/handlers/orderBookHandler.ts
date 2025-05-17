@@ -1,17 +1,19 @@
 import { and, eq, or } from "ponder";
 import {
-	dailyBuckets,
-	fiveMinuteBuckets,
-	hourBuckets,
-	orderBookTrades,
-	orderHistory,
-	orders,
-	pools,
-	thirtyMinuteBuckets,
-	trades,
+    dailyBuckets,
+    fiveMinuteBuckets,
+    hourBuckets,
+    orderBookTrades,
+    orderHistory,
+    orders,
+    pools,
+    thirtyMinuteBuckets,
+    trades,
 } from "ponder:schema";
 import { minuteBuckets } from "../../ponder.schema";
+import { updateCandlestickBucket } from "../utils/candlestick";
 import { ORDER_STATUS, TIME_INTERVALS } from "../utils/constants";
+import { getPoolTokenDecimals } from "../utils/getPoolTokenDecimals";
 import { createOrderHistoryId, createOrderId, createPoolId, createTradeId } from "../utils/hash";
 import { pushDepth, pushExecutionReport, pushTrade, pushMiniTicker } from "../websocket/broadcaster";
 import dotenv from "dotenv";
@@ -59,10 +61,6 @@ export async function handleOrderPlaced({ event, context }: any) {
         const symbol = (await symbolFromPool(context, event.log.address!, chainId)).toUpperCase();
         const id = createOrderId(BigInt(event.args.orderId!), event.log.address!, chainId);
 
-        console.log('chainId', chainId)
-        console.log('symbol', symbol)
-        console.log('id', id)
-
         await context.db
             .insert(orders)
             .values({
@@ -83,13 +81,13 @@ export async function handleOrderPlaced({ event, context }: any) {
             })
             .onConflictDoNothing();
 
-		const orderHistoryId = createOrderHistoryId(
-			event.transaction.hash.toString(),
-			BigInt(0),
-			chainId,
-			event.log.address!,
-			event.args.orderId.toString()
-		);
+        const orderHistoryId = createOrderHistoryId(
+            event.transaction.hash.toString(),
+            BigInt(0),
+            chainId,
+            event.log.address!,
+            event.args.orderId.toString()
+        );
 
         await context.db
             .insert(orderHistory)
@@ -126,27 +124,27 @@ export async function handleOrderMatched({ event, context }: any) {
     const chainId = context.network.chainId;
     const symbol = (await symbolFromPool(context, event.log.address!, chainId)).toUpperCase();
 
-	const tradeId = createTradeId(
-		event.transaction.hash,
-		event.args.user,
-		"buy",
-		event.args.buyOrderId,
-		event.args.sellOrderId,
-		event.args.executionPrice,
-		event.args.executedQuantity,
-		chainId
-	);
+    const tradeId = createTradeId(
+        event.transaction.hash,
+        event.args.user,
+        "buy",
+        event.args.buyOrderId,
+        event.args.sellOrderId,
+        event.args.executionPrice,
+        event.args.executedQuantity,
+        chainId
+    );
 
-	await context.db.insert(orderBookTrades).values({
-		id: tradeId,
-		chainId: chainId,
-		price: BigInt(event.args.executionPrice),
-		quantity: BigInt(event.args.executedQuantity),
-		timestamp: Number(event.args.timestamp),
-		transactionId: event.transaction.hash,
-		side: event.args.side ? "Sell" : "Buy",
-		poolId: event.log.address!,
-	});
+    await context.db.insert(orderBookTrades).values({
+        id: tradeId,
+        chainId: chainId,
+        price: BigInt(event.args.executionPrice),
+        quantity: BigInt(event.args.executedQuantity),
+        timestamp: Number(event.args.timestamp),
+        transactionId: event.transaction.hash,
+        side: event.args.side ? "Sell" : "Buy",
+        poolId: event.log.address!,
+    });
 
     const poolId = createPoolId(chainId, event.log.address!);
 
@@ -155,85 +153,87 @@ export async function handleOrderMatched({ event, context }: any) {
     }).set((row: any) => ({
         price: BigInt(event.args.executionPrice),
         volume: BigInt(Number(row.volume)) + BigInt(Number(event.args.executedQuantity)),
-        volumeInQuote: BigInt(row.volumeInQuote) + (BigInt(event.args.executedQuantity) * BigInt(event.args.executionPrice)) / (BigInt(10) ** BigInt(row.baseDecimals)),
+        volumeInQuote: BigInt(Number(row.volumeInQuote)) + BigInt((Number(event.args.executedQuantity) / Number(10 ** row.baseDecimals) * Number(event.args.executionPrice))),
         timestamp: Number(event.args.timestamp)
     }));
 
-	const buyOrderId = createOrderId(BigInt(event.args.buyOrderId!), event.log.address!, chainId);
+    const buyOrderId = createOrderId(BigInt(event.args.buyOrderId!), event.log.address!, chainId);
 
-	await context.db
-		.insert(trades)
-		.values({
-			id: tradeId,
-			chainId: chainId,
-			transactionId: event.transaction.hash,
-			orderId: buyOrderId,
-			timestamp: Number(event.args.timestamp),
-			price: BigInt(event.args.executionPrice),
-			quantity: BigInt(event.args.executedQuantity),
-			poolId: event.log.address!,
-		})
-		.onConflictDoNothing();
+    await context.db
+        .insert(trades)
+        .values({
+            id: tradeId,
+            chainId: chainId,
+            transactionId: event.transaction.hash,
+            orderId: buyOrderId,
+            timestamp: Number(event.args.timestamp),
+            price: BigInt(event.args.executionPrice),
+            quantity: BigInt(event.args.executedQuantity),
+            poolId: event.log.address!,
+        })
+        .onConflictDoNothing();
 
-	await context.db
-		.update(orders, {
-			id: buyOrderId,
-			chainId: chainId,
-		})
-		.set((row: any) => ({
-			filled: row.filled + BigInt(event.args.executedQuantity),
-			status: row.filled + BigInt(event.args.executedQuantity) === row.quantity ? "FILLED" : "PARTIALLY_FILLED",
-		}));
+    await context.db.update(orders, {
+        id: buyOrderId,
+        chainId: chainId
+    }).set((row: any) => ({
+        filled: row.filled + BigInt(event.args.executedQuantity),
+        status:
+            row.filled + BigInt(event.args.executedQuantity) === row.quantity
+                ? "FILLED"
+                : "PARTIALLY_FILLED",
+    }));
 
-	const oppositeId = createTradeId(
-		event.transaction.hash,
-		event.args.user,
-		"sell",
-		event.args.buyOrderId,
-		event.args.sellOrderId,
-		event.args.executionPrice,
-		event.args.executedQuantity,
-		chainId
-	);
+    const oppositeId = createTradeId(
+        event.transaction.hash,
+        event.args.user,
+        "sell",
+        event.args.buyOrderId,
+        event.args.sellOrderId,
+        event.args.executionPrice,
+        event.args.executedQuantity,
+        chainId
+    );
 
-	const sellOrderId = createOrderId(BigInt(event.args.sellOrderId!), event.log.address!, chainId);
+    const sellOrderId = createOrderId(BigInt(event.args.sellOrderId!), event.log.address!, chainId);
 
-	await context.db
-		.insert(trades)
-		.values({
-			id: oppositeId,
-			chainId: chainId,
-			transactionId: event.transaction.hash,
-			orderId: sellOrderId,
-			timestamp: Number(event.args.timestamp),
-			price: BigInt(event.args.executionPrice),
-			quantity: BigInt(event.args.executedQuantity),
-			poolId: event.log.address!,
-		})
-		.onConflictDoNothing();
+    await context.db
+        .insert(trades)
+        .values({
+            id: oppositeId,
+            chainId: chainId,
+            transactionId: event.transaction.hash,
+            orderId: sellOrderId,
+            timestamp: Number(event.args.timestamp),
+            price: BigInt(event.args.executionPrice),
+            quantity: BigInt(event.args.executedQuantity),
+            poolId: event.log.address!,
+        })
+        .onConflictDoNothing();
 
-	await context.db
-		.update(orders, {
-			id: sellOrderId,
-			chainId: chainId,
-		})
-		.set((row: any) => ({
-			filled: row.filled + BigInt(event.args.executedQuantity),
-			status: row.filled + BigInt(event.args.executedQuantity) === row.quantity ? "FILLED" : "PARTIALLY_FILLED",
-		}));
+    await context.db.update(orders, {
+        id: sellOrderId,
+        chainId: chainId
+    }).set((row: any) => ({
+        filled: row.filled + BigInt(event.args.executedQuantity),
+        status:
+            row.filled + BigInt(event.args.executedQuantity) === row.quantity
+                ? "FILLED"
+                : "PARTIALLY_FILLED",
+    }));
 
-	const isTakerBuy = !event.args.side;
+    const isTakerBuy = !event.args.side;
 
-	let baseDecimals = 18;
-	let quoteDecimals = 6;
+    let baseDecimals = 18;
+    let quoteDecimals = 6;
 
-	try {
-		const decimals = await getPoolTokenDecimals(event.log.address, chainId, context);
-		baseDecimals = decimals.baseDecimals;
-		quoteDecimals = decimals.quoteDecimals;
-	} catch (error) {
-		console.log(`Using default decimals due to error: ${error}`);
-	}
+    try {
+        const decimals = await getPoolTokenDecimals(event.log.address, chainId, context);
+        baseDecimals = decimals.baseDecimals;
+        quoteDecimals = decimals.quoteDecimals;
+    } catch (error) {
+        console.log(`Using default decimals due to error: ${error}`);
+    }
 
     for (const [table, seconds] of [
         [minuteBuckets, TIME_INTERVALS.minute],
@@ -316,18 +316,17 @@ export async function handleUpdateOrder({ event, context }: any) {
         event.args.orderId.toString()
     );
 
-	await context.db.insert(orderHistory).values({
-		id: orderHistoryId,
-		chainId: chainId,
-		transactionId: event.transaction.hash.toString(),
-		orderId: event.args.orderId.toString(),
-		timestamp: Number(event.args.timestamp),
-		filled: BigInt(event.args.filled),
-		status: ORDER_STATUS[Number(event.args.status)],
-		poolId: event.log.address!,
-	});
+    await context.db.insert(orderHistory).values({
+        id: orderHistoryId,
+        chainId: chainId,
+        orderId: event.args.orderId.toString(),
+        timestamp: Number(event.args.timestamp),
+        filled: BigInt(event.args.filled),
+        status: ORDER_STATUS[Number(event.args.status)],
+        poolId: event.log.address!,
+    });
 
-	const id = createOrderId(BigInt(event.args.orderId!), event.log.address!, chainId);
+    const id = createOrderId(BigInt(event.args.orderId!), event.log.address!, chainId);
 
     await context.db.update(orders, {
         id: id,
