@@ -14,7 +14,9 @@
   "dependencies": {
     "dotenv": "^16.5.0",
     "hono": "^4.7.8",
+    "pg": "^8.16.0",
     "ponder": "^0.10.24",
+    "rise-shred-client": "^1.0.1",
     "viem": "^2.29.0"
   },
   "devDependencies": {

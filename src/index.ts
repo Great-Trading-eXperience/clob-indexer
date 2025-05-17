@@ -2,8 +2,9 @@ import {ponder} from "ponder:registry";
 import * as orderBookHandler from "./handlers/orderBookHandler";
 import * as balanceManagerHandler from "./handlers/balanceManagerHandler";
 import * as poolManagerHandler from "./handlers/poolManagerHandler";
+import {handleOrderBookPerfomance} from "./handlers/orderBookHandler";
 
-// Pool Manager Events
+/*// Pool Manager Events
 ponder.on("PoolManager:PoolCreated" as any, poolManagerHandler.handlePoolCreated);
 
 // Balance Manager Events
@@ -18,4 +19,7 @@ ponder.on("BalanceManager:Unlock" as any, balanceManagerHandler.handleUnlock);
 ponder.on("OrderBook:OrderPlaced" as any, orderBookHandler.handleOrderPlaced);
 ponder.on("OrderBook:OrderMatched" as any, orderBookHandler.handleOrderMatched);
 ponder.on("OrderBook:OrderCancelled" as any, orderBookHandler.handleOrderCancelled);
-ponder.on("OrderBook:UpdateOrder" as any, orderBookHandler.handleUpdateOrder);
+ponder.on("OrderBook:UpdateOrder" as any, orderBookHandler.handleUpdateOrder);*/
+
+//Note: OrderBook for perfomance check
+ponder.on("OrderBookPerfomance:OrderPlaced" as any, orderBookHandler.handleOrderBookPerfomance);

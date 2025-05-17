@@ -15,6 +15,36 @@ import { createOrderHistoryId, createOrderId, createPoolId, createTradeId } from
 import { updateCandlestickBucket } from "../utils/candlestick";
 import { getPoolTokenDecimals } from "../utils/getPoolTokenDecimals";
 
+export async function handleOrderBookPerfomance({event, context}: any) {
+	const timestampEventTriggered = new Date();
+	console.log("OrderBookPerfomance:OrderPlaced event triggered");
+	const chainId = context.network.chainId;
+	const id = createOrderId(BigInt(event.args.orderId!), event.log.address!, chainId);
+
+	await context.db.sql
+		.insert(orders)
+		.values({
+			id: id,
+			chainId: chainId,
+			transactionId: event.transaction.hash.toString(),
+			user: event.args.user,
+			poolId: event.log.address!,
+			orderId: BigInt(event.args.orderId!),
+			side: event.args.side ? "Sell" : "Buy",
+			timestamp: Number(event.block.timestamp),
+			timestamptz_event: timestampEventTriggered,
+			timestamptz_block: new Date(Number(event.block.timestamp) * 1000),
+			price: BigInt(event.args.price),
+			quantity: BigInt(event.args.quantity),
+			orderValue: BigInt(event.args.price) * BigInt(event.args.quantity),
+			filled: BigInt(0),
+			type: event.args.isMarketOrder ? "Market" : "Limit",
+			status: ORDER_STATUS[Number(event.args.status)],
+			expiry: Number(event.args.expiry),
+		});
+
+	console.log("OrderBookPerfomance:OrderPlaced event processed successfully");
+}
 export async function handleOrderPlaced({ event, context }: any) {
 	try {
 		const chainId = context.network.chainId;

@@ -1,4 +1,4 @@
-import { index, onchainTable, relations } from "ponder";
+import {index, onchainTable, relations, time, timestamp} from "ponder";
 
 export const pools = onchainTable(
 	"pools",
@@ -33,6 +33,8 @@ export const orders = onchainTable(
 		user: t.hex(),
 		side: t.varchar(),
 		timestamp: t.integer(),
+		timestamptz_event: timestamp({withTimezone: true}),
+		timestamptz_block: timestamp({withTimezone: true}),
 		price: t.bigint(),
 		quantity: t.bigint(),
 		filled: t.bigint(),

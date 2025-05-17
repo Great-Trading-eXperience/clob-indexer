@@ -13,6 +13,12 @@ const default_address = getAddress(
 );
 
 const contracts: any = {
+  OrderBookPerfomance: {
+    abi: OrderBookABI,
+    network: "network",
+    address: '0xbCD9b173DCb1374E344C449840b6a317542632F4',
+    startBlock: "latest", //test
+  },
   OrderBook: {
     abi: OrderBookABI,
     network: "network",
@@ -58,14 +64,15 @@ const contracts: any = {
 
 export default createConfig({
   database: {
-    kind: "pglite",
+    kind: "postgres",
+    connectionString: process.env.PONDER_DATABASE_URL,
   },
   networks: {
     network: {
       chainId: Number(process.env.CHAIN_ID),
       transport: http(process.env.PONDER_RPC_URL),
-      pollingInterval: Number(process.env.POLLING_INTERVAL) || 10000,
-      maxRequestsPerSecond: Number(process.env.MAX_REQUESTS_PER_SECOND) || 5,
+      pollingInterval: Number(process.env.POLLING_INTERVAL) || 100,
+      maxRequestsPerSecond: Number(process.env.MAX_REQUESTS_PER_SECOND) || 100,
     },
   },
   contracts: contracts,
