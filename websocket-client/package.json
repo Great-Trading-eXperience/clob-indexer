@@ -1,0 +1,21 @@
+{
+    "name": "websocket-client",
+    "version": "1.0.0",
+    "description": "WebSocket client to test the CLOB DEX WebSocket server functions",
+    "type": "module",
+    "scripts": {
+      "client": "bun run websocket-client.ts"
+    },
+    "dependencies": {
+      "ws": "^8.14.2"
+    },
+    "devDependencies": {
+      "@types/node": "^20.8.2",
+      "@types/ws": "^8.5.5",
+      "typescript": "^5.2.2",
+      "bun-types": "latest"
+    },
+    "engines": {
+      "bun": ">=1.0.0"
+    }
+  }
