@@ -21,7 +21,6 @@ EXPOSE 54321
 
 # Crash recovery: restart ponder on crash, using $timestamp as schema
 CMD sh -c 'while true; do \
-    pnpm ponder db prune; \
     TIMESTAMP=$(date +%s); \
     pnpm ponder start --schema public_$TIMESTAMP; \
     echo "Ponder crashed. Restarting in 5 seconds..."; \
