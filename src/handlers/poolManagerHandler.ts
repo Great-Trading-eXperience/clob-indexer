@@ -85,6 +85,9 @@ export async function handlePoolCreated({event, context}: any) {
             quoteCurrency,
             baseDecimals: baseData.decimals,
             quoteDecimals: quoteData.decimals,
+            volume: BigInt(0),
+            volumeInQuote: BigInt(0),
+            price: BigInt(0),
             timestamp: Number(event.block.timestamp),
         })
         .onConflictDoNothing();
