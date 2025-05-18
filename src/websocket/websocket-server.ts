@@ -2,8 +2,10 @@ import { randomBytes } from "crypto";
 import { Hono } from "hono";
 import { createServer, IncomingMessage, ServerResponse } from "http";
 import { URL } from "url";
-import { WebSocket, WebSocketServer } from "ws";
 import { registerBroadcastFns } from "./broadcaster";
+
+const { WebSocket, WebSocketServer } = require("ws");
+import type { WebSocket as WSWebSocket } from "ws";
 
 const ENABLED_WEBSOCKET_LOG = process.env.ENABLE_WEBSOCKET_LOG === 'true';
 
@@ -20,7 +22,7 @@ interface ClientState {
     userId ? : string;
 }
 
-const clients = new Map < WebSocket,
+const clients = new Map < WSWebSocket,
     ClientState > ();
 const listenKeys = new Map < string,
     {
@@ -48,7 +50,7 @@ export function bootstrapGateway(app: Hono) {
         server: http
     });
 
-    wss.on("connection", (ws, req) => {
+    wss.on("connection", (ws: any, req: any) => {
         const url = req.url || "/";
         const listenKey = url.startsWith("/ws/") ? url.slice(4) : undefined;
         const state: ClientState = {
@@ -60,7 +62,7 @@ export function bootstrapGateway(app: Hono) {
 
         clients.set(ws, state);
 
-        ws.on("message", raw => {
+        ws.on("message", (raw: any) => {
             let m: BinanceControl;
             try {
                 m = JSON.parse(raw.toString());
