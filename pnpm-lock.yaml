@@ -16,18 +16,20 @@ importers:
         version: 4.7.8
       ponder:
         specifier: ^0.10.24
-<<<<<<< HEAD
         version: 0.10.27(@opentelemetry/api@1.9.0)(@types/node@20.17.41)(hono@4.7.8)(typescript@5.8.3)(viem@2.29.0(typescript@5.8.3))
-=======
-        version: 0.10.26(@opentelemetry/api@1.9.0)(@types/node@20.17.41)(hono@4.7.8)(typescript@5.8.3)(viem@2.29.0(typescript@5.8.3))
->>>>>>> 3985bca (update voting handler)
       viem:
         specifier: ^2.29.0
         version: 2.29.0(typescript@5.8.3)
+      ws:
+        specifier: ^8.18.2
+        version: 8.18.2
     devDependencies:
       '@types/node':
         specifier: ^20.17.41
         version: 20.17.41
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       eslint:
         specifier: ^8.57.1
         version: 8.57.1
@@ -464,6 +466,9 @@ packages:
 
   '@types/semver@7.7.0':
     resolution: {integrity: sha512-k107IF4+Xr7UHjwDc7Cfd6PRQfbdkiRabXGRjo07b4WyPahFBZCZ1sE+BNxYIJPPg73UkfOsVOLwqVc/6ETrIA==}
+
+  '@types/ws@8.18.1':
+    resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
 
   '@typescript-eslint/eslint-plugin@6.21.0':
     resolution: {integrity: sha512-oy9+hTPCUFpngkEZUSzbf9MxI65wbKFoQYsgPdILTfbUldp5ovUuphZVe4i30emU9M/kP+T64Di0mxl7dSw3MA==}
@@ -1320,13 +1325,8 @@ packages:
     resolution: {integrity: sha512-ip4qdzjkAyDDZklUaZkcRFb2iA118H9SgRh8yzTkSQK8HilsOJF7rSY8HoW5+I0M46AZgX/pxbprf2vvzQCE0Q==}
     hasBin: true
 
-<<<<<<< HEAD
   ponder@0.10.27:
     resolution: {integrity: sha512-Gv+hjY7B4bbiSysA52pA3h0rw65qHaW7jeigAuNyYPFKFqAK0SYBkYP0WrRzMq3yFt/ckR97IOabD3Mzz42NJQ==}
-=======
-  ponder@0.10.26:
-    resolution: {integrity: sha512-rGKAoO1y1ijDdivOEqpiW91Hmtk1z2pWAdOcnQARvQuE/g4zesx1lbKGugcbd+9Gz8/CocQBn89KUIGVrdXl0A==}
->>>>>>> 3985bca (update voting handler)
     engines: {node: '>=18.14'}
     hasBin: true
     peerDependencies:
@@ -1654,6 +1654,18 @@ packages:
 
   ws@8.18.1:
     resolution: {integrity: sha512-RKW2aJZMXeMxVpnZ6bck+RswznaxmzdULiBr6KY7XkTnW8uvt0iT9H5DkHUChXrc+uurzwa0rVI16n/Xzjdz1w==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
+  ws@8.18.2:
+    resolution: {integrity: sha512-DMricUmwGZUVr++AEAe2uiVM7UoO9MAVZMDu05UQOaUII0lp+zOzLLU4Xqh/JvTqklB1T4uELaaPBKyjE1r4fQ==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -2014,6 +2026,10 @@ snapshots:
       undici-types: 6.19.8
 
   '@types/semver@7.7.0': {}
+
+  '@types/ws@8.18.1':
+    dependencies:
+      '@types/node': 20.17.41
 
   '@typescript-eslint/eslint-plugin@6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.8.3))(eslint@8.57.1)(typescript@5.8.3)':
     dependencies:
@@ -2827,11 +2843,7 @@ snapshots:
       sonic-boom: 3.8.1
       thread-stream: 2.7.0
 
-<<<<<<< HEAD
   ponder@0.10.27(@opentelemetry/api@1.9.0)(@types/node@20.17.41)(hono@4.7.8)(typescript@5.8.3)(viem@2.29.0(typescript@5.8.3)):
-=======
-  ponder@0.10.26(@opentelemetry/api@1.9.0)(@types/node@20.17.41)(hono@4.7.8)(typescript@5.8.3)(viem@2.29.0(typescript@5.8.3)):
->>>>>>> 3985bca (update voting handler)
     dependencies:
       '@babel/code-frame': 7.27.1
       '@commander-js/extra-typings': 12.1.0(commander@12.1.0)
@@ -3194,6 +3206,8 @@ snapshots:
   wrappy@1.0.2: {}
 
   ws@8.18.1: {}
+
+  ws@8.18.2: {}
 
   xtend@4.0.2: {}
 

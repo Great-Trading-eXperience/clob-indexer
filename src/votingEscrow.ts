@@ -2,33 +2,28 @@ import { createHash } from "crypto";
 import { ponder } from "ponder:registry";
 import { velockPositions } from "../ponder.schema";
 
-ponder.on(
-	"VotingEscrow:NewLockPosition" as any,
-	async ({ event, context }: any) => {
-		const user = event.args.user;
-		const chainId = event.args.chainId;
-		const id = createHash("sha256")
-			.update(`${user!}-${chainId!}`)
-			.digest("hex");
+ponder.on("VotingEscrow:NewLockPosition" as any, async ({ event, context }: any) => {
+	const user = event.args.user;
+	const chainId = context.network.chainId;
+	const id = createHash("sha256").update(`${user!}-${chainId!}`).digest("hex");
 
-		await context.db
-			.insert(velockPositions)
-			.values({
-				id: id,
-				chainId: chainId,
-				user: user,
-				amount: event.args.amount,
-				expiry: event.args.expiry,
-			})
-			.onConflictDoUpdate((row: any) => ({
-				amount: row.amount + BigInt(event.args.amount),
-			}));
-	}
-);
+	await context.db
+		.insert(velockPositions)
+		.values({
+			id: id,
+			chainId: chainId,
+			user: user,
+			amount: event.args.amount,
+			expiry: event.args.expiry,
+		})
+		.onConflictDoUpdate((row: any) => ({
+			amount: row.amount + BigInt(event.args.amount),
+		}));
+});
 
 ponder.on("VotingEscrow:Withdraw" as any, async ({ event, context }: any) => {
 	const user = event.args.user;
-	const chainId = event.args.chainId;
+	const chainId = context.network.chainId;
 	const id = createHash("sha256").update(`${user!}-${chainId!}`).digest("hex");
 
 	await context.db.update(velockPositions, { id: id }).set((row: any) => ({
@@ -102,32 +97,26 @@ ponder.on("VotingEscrow:Withdraw" as any, async ({ event, context }: any) => {
 // 	anonymous: false,
 // },
 
-ponder.on(
-	"VotingEscrow:BroadcastTotalSupply" as any,
-	async ({ event, context }) => {
-		const { newTotalSupply, chainIds } = event.args;
+// ponder.on("VotingEscrow:BroadcastTotalSupply" as any, async ({ event, context }) => {
+// 	const { newTotalSupply, chainIds } = event.args;
 
-		await context.db.TotalSupply.create({
-			id: event.transaction.hash,
-			data: {
-				bias: newTotalSupply.bias,
-				slope: newTotalSupply.slope,
-				chainIds: chainIds,
-			},
-		});
-	}
-);
+// 	await context.db.TotalSupply.create({
+// 		id: event.transaction.hash,
+// 		data: {
+// 			bias: newTotalSupply.bias,
+// 			slope: newTotalSupply.slope,
+// 			chainIds: chainIds,
+// 		},
+// 	});
+// });
 
-ponder.on(
-	"VotingEscrow:BroadcastUserPosition" as any,
-	async ({ event, context }) => {
-		const { user, chainIds } = event.args;
+// ponder.on("VotingEscrow:BroadcastUserPosition" as any, async ({ event, context }) => {
+// 	const { user, chainIds } = event.args;
 
-		await context.db.User.update({
-			id: user,
-			data: {
-				chainIds: chainIds,
-			},
-		});
-	}
-);
+// 	await context.db.User.update({
+// 		id: user,
+// 		data: {
+// 			chainIds: chainIds,
+// 		},
+// 	});
+// });

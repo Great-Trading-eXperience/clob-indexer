@@ -1,45 +1,31 @@
 import { ponder } from "ponder:registry";
 import { getAddress } from "viem";
-// import { marketMaker } from "ponder:schema";
 import { createHash } from "crypto";
 import { votingPools, votes } from "../ponder.schema";
 
-ponder.on(
-	"VotingController:AddPool" as any,
-	async ({ event, context }: any) => {
-		const poolId = event.args.pool;
-		const chainId = event.args.chainId;
-		const id = createHash("sha256")
-			.update(`${chainId!}-${poolId!}`)
-			.digest("hex");
+ponder.on("VotingController:AddPool" as any, async ({ event, context }: any) => {
+	const marketMakerId = event.args.pool;
+	const chainId = context.network.chainId;
+	const id = createHash("sha256").update(`${chainId!}-${marketMakerId!}`).digest("hex");
 
-		await context.db
-			.insert(votingPools)
-			.values({
-				id: id,
-				chainId: chainId,
-				poolId: poolId,
-				active: true,
-			})
-			.onConflictDoNothing();
-	}
-);
+	await context.db
+		.insert(votingPools)
+		.values({
+			id: id,
+			chainId: chainId,
+			marketMakerId: marketMakerId,
+			active: true,
+		})
+		.onConflictDoNothing();
+});
 
-ponder.on(
-	"VotingController:RemovePool" as any,
-	async ({ event, context }: any) => {
-		const poolId = event.args.pool;
-		const chainId = event.args.chainId;
-		const id = createHash("sha256")
-			.update(`${chainId!}-${poolId!}`)
-			.digest("hex");
+ponder.on("VotingController:RemovePool" as any, async ({ event, context }: any) => {
+	const poolId = event.args.pool;
+	const chainId = context.network.chainId;
+	const id = createHash("sha256").update(`${chainId!}-${poolId!}`).digest("hex");
 
-		await context.db
-			.update(votingPools)
-			.set({ active: false })
-			.where({ id: id });
-	}
-);
+	await context.db.update(votingPools).set({ active: false }).where({ id: id });
+});
 
 // {
 // 	type: "event",

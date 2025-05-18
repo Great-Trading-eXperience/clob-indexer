@@ -193,16 +193,30 @@ export const marketMaker = onchainTable("market_makers", (t: any) => ({
 	symbol: t.text(),
 }));
 
-export const marketMakers = onchainTable(
-	"pool_market_makers",
+// export const marketMakers = onchainTable(
+// 	"pool_market_makers",
+// 	(t: any) => ({
+// 		id: t.text().primaryKey(),
+// 		name: t.text(),
+// 		symbol: t.text(),
+// 		chainId: t.integer().notNull(),
+// 		marketMakerId: t.hex().notNull(),
+// 		// amount: t.bigint(),
+// 		// lockedAmount: t.bigint(),
+// 	}),
+// 	(table: any) => ({
+// 		chainIdIdx: index().on(table.chainId),
+// 		marketMakerIdx: index().on(table.marketMakerId),
+// 	})
+// );
+
+export const votingPools = onchainTable(
+	"ve_pools",
 	(t: any) => ({
 		id: t.text().primaryKey(),
-		name: t.text(),
-		symbol: t.text(),
+		marketMakerId: t.hex(), // pools in vetoken perspective
 		chainId: t.integer().notNull(),
-		marketMakerId: t.hex().notNull(),
-		// amount: t.bigint(),
-		// lockedAmount: t.bigint(),
+		active: t.boolean(),
 	}),
 	(table: any) => ({
 		chainIdIdx: index().on(table.chainId),
@@ -210,21 +224,7 @@ export const marketMakers = onchainTable(
 	})
 );
 
-export const votingPools = onchainTable(
-	"ve_pools",
-	t => ({
-		id: t.text().primaryKey(),
-		marketMakerId: t.hex(), // pools in vetoken perspective
-		chainId: t.integer().notNull(),
-		active: t.boolean(),
-	}),
-	table => ({
-		chainIdIdx: index().on(table.chainId),
-		marketMakerIdx: index().on(table.marketMakerId),
-	})
-);
-
-export const velockPositions = onchainTable("velock_positions", t => ({
+export const velockPositions = onchainTable("velock_positions", (t: any) => ({
 	id: t.text().primaryKey(),
 	chainId: t.integer().notNull(),
 	user: t.hex(),
@@ -256,7 +256,7 @@ export const votingEscrow = onchainTable(
 		id: t.text().primaryKey(),
 		chainId: t.integer().notNull(),
 		user: t.hex(),
-		totalSupply: t.json().$type<{ bias: bigint; slope: bigint }>(),
+		// totalSupply: t.json().$type<{ bias: bigint; slope: bigint }>(),
 		timestamp: t.integer(),
 		amount: t.bigint(),
 		expiry: t.integer(),
