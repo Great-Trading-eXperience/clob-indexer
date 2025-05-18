@@ -150,12 +150,20 @@ export async function handleOrderMatched({ event, context }: any) {
 
     await context.db.update(pools, {
         id: poolId
-    }).set((row: any) => ({
-        price: BigInt(event.args.executionPrice),
-        volume: BigInt(Number(row.volume)) + BigInt(Number(event.args.executedQuantity)),
-        volumeInQuote: BigInt(Number(row.volumeInQuote)) + BigInt((Number(event.args.executedQuantity) / Number(10 ** row.baseDecimals) * Number(event.args.executionPrice))),
-        timestamp: Number(event.args.timestamp)
-    }));
+    }).set((row: any) => {
+        const executedQuantity = BigInt(event.args.executedQuantity);
+        const executionPrice = BigInt(event.args.executionPrice);
+        const baseDecimals = BigInt(row.baseDecimals);
+    
+        const quoteVolume = (executedQuantity * executionPrice) / (10n ** baseDecimals);
+    
+        return {
+            price: BigInt(event.args.executionPrice),
+            volume: BigInt(row.volume) + executedQuantity,
+            volumeInQuote: BigInt(row.volumeInQuote) + quoteVolume,
+            timestamp: Number(event.args.timestamp)
+        };
+    });
 
     const buyOrderId = createOrderId(BigInt(event.args.buyOrderId!), event.log.address!, chainId);
 
