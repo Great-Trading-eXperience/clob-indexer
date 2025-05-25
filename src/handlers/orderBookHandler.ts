@@ -56,67 +56,63 @@ function exec(symbol: string, user: string, order: any, execType: string, status
 }
 
 export async function handleOrderPlaced({ event, context }: any) {
-    try {
-        const chainId = context.network.chainId;
-        const symbol = (await symbolFromPool(context, event.log.address!, chainId)).toUpperCase();
-        const id = createOrderId(BigInt(event.args.orderId!), event.log.address!, chainId);
+    const chainId = context.network.chainId;
+    const symbol = (await symbolFromPool(context, event.log.address!, chainId)).toUpperCase();
+    const id = createOrderId(BigInt(event.args.orderId!), event.log.address!, chainId);
 
-        await context.db
-            .insert(orders)
-            .values({
-                id: id,
-                chainId: chainId,
-                user: event.args.user,
-                poolId: event.log.address!,
-                orderId: BigInt(event.args.orderId!),
-                side: event.args.side ? "Sell" : "Buy",
-                timestamp: Number(event.block.timestamp),
-                price: BigInt(event.args.price),
-                quantity: BigInt(event.args.quantity),
-                orderValue: BigInt(event.args.price) * BigInt(event.args.quantity),
-                filled: BigInt(0),
-                type: event.args.isMarketOrder ? "Market" : "Limit",
-                status: ORDER_STATUS[Number(event.args.status)],
-                expiry: Number(event.args.expiry),
-            })
-            .onConflictDoNothing();
+    await context.db
+        .insert(orders)
+        .values({
+            id: id,
+            chainId: chainId,
+            user: event.args.user,
+            poolId: event.log.address!,
+            orderId: BigInt(event.args.orderId!),
+            side: event.args.side ? "Sell" : "Buy",
+            timestamp: Number(event.block.timestamp),
+            price: BigInt(event.args.price),
+            quantity: BigInt(event.args.quantity),
+            orderValue: BigInt(event.args.price) * BigInt(event.args.quantity),
+            filled: BigInt(0),
+            type: event.args.isMarketOrder ? "Market" : "Limit",
+            status: ORDER_STATUS[Number(event.args.status)],
+            expiry: Number(event.args.expiry),
+        })
+        .onConflictDoNothing();
 
-        const orderHistoryId = createOrderHistoryId(
-            event.transaction.hash.toString(),
-            BigInt(0),
-            chainId,
-            event.log.address!,
-            event.args.orderId.toString()
-        );
+    const orderHistoryId = createOrderHistoryId(
+        event.transaction.hash.toString(),
+        BigInt(0),
+        chainId,
+        event.log.address!,
+        event.args.orderId.toString()
+    );
 
-        await context.db
-            .insert(orderHistory)
-            .values({
-                id: orderHistoryId,
-                chainId: chainId,
-                orderId: event.args.orderId.toString(),
-                poolId: event.log.address!,
-                timestamp: Number(event.block.timestamp),
-                quantity: BigInt(event.args.quantity),
-                filled: BigInt(0),
-                status: ORDER_STATUS[Number(event.args.status)],
-            })
-            .onConflictDoUpdate((row: any) => ({
-                timestamp: Number(event.block.timestamp),
-                quantity: BigInt(event.args.quantity),
-                filled: BigInt(0),
-                status: ORDER_STATUS[Number(event.args.status)],
-            }));
+    await context.db
+        .insert(orderHistory)
+        .values({
+            id: orderHistoryId,
+            chainId: chainId,
+            orderId: event.args.orderId.toString(),
+            poolId: event.log.address!,
+            timestamp: Number(event.block.timestamp),
+            quantity: BigInt(event.args.quantity),
+            filled: BigInt(0),
+            status: ORDER_STATUS[Number(event.args.status)],
+        })
+        .onConflictDoUpdate((row: any) => ({
+            timestamp: Number(event.block.timestamp),
+            quantity: BigInt(event.args.quantity),
+            filled: BigInt(0),
+            status: ORDER_STATUS[Number(event.args.status)],
+        }));
 
-        if (ENABLED_WEBSOCKET) {
-            const order = (await context.db.sql.select().from(orders).where(eq(orders.id, id)).execute())[0];
-            exec(symbol.toLowerCase(), order.user, order, "NEW", "NEW", BigInt(0), BigInt(0), Number(event.block.timestamp));
+    if (ENABLED_WEBSOCKET) {
+        const order = (await context.db.sql.select().from(orders).where(eq(orders.id, id)).execute())[0];
+        exec(symbol.toLowerCase(), order.user, order, "NEW", "NEW", BigInt(0), BigInt(0), Number(event.block.timestamp));
 
-            const latestDepth = await depth(event.log.address!, context);
-            pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
-        }
-    } catch (e) {
-        console.log("Error in OrderPlaced", e);
+        const latestDepth = await depth(event.log.address!, context);
+        pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
     }
 }
 
