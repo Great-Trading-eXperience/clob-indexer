@@ -1,11 +1,13 @@
 import { Hono } from "hono";
-import { and, client, eq, graphql, gte, lte } from "ponder";
+import { and, client, desc, eq, graphql, gt, gte, lte } from "ponder";
 import { db } from "ponder:api";
 import schema, {
   dailyBuckets,
   fiveMinuteBuckets,
   hourBuckets,
   minuteBuckets,
+  orderBookDepth,
+  orderBookTrades,
   pools,
   thirtyMinuteBuckets
 } from "ponder:schema";
@@ -18,7 +20,6 @@ app.use("/sql/*", client({ db, schema }));
 app.use("/", graphql({ db, schema }));
 app.use("/graphql", graphql({ db, schema }));
 
-// Define types for Binance Kline data format
 type BinanceKlineData = [
   number,    // Open time
   string,    // Open price
@@ -52,7 +53,6 @@ interface BucketData {
   poolId: string;
 }
 
-// Define supported interval types
 type IntervalType = "1m" | "5m" | "30m" | "1h" | "1d";
 
 app.get("/api/kline/mocks", async (c) => {
@@ -66,7 +66,6 @@ app.get("/api/kline/mocks", async (c) => {
     return c.json({ error: "Symbol parameter is required" }, 400);
   }
   
-  // Generate mock data that matches Binance Kline format
   const mockData = generateMockKlineData(symbol, interval, startTime, endTime, limit);
   return c.json(mockData);
 });
@@ -84,7 +83,6 @@ app.get("/api/kline", async (c) => {
 
   const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
 
-  // In a production scenario, uncomment this to ensure the pool exists
   if (!queriedPools || queriedPools.length === 0) {
     return c.json({ error: "Pool not found" }, 404);
   }
@@ -96,7 +94,6 @@ app.get("/api/kline", async (c) => {
     "1h": hourBuckets,
     "1d": dailyBuckets,
   };
-
 
   const bucketTable = intervalTableMap[interval as IntervalType] || minuteBuckets;
 
@@ -122,6 +119,288 @@ app.get("/api/kline", async (c) => {
     return c.json(formattedData);
   } catch (error) {
     return c.json({ error: `Failed to fetch kline data: ${error}` }, 500);
+  }
+});
+
+app.get("/api/depth", async (c) => {
+  const symbol = c.req.query("symbol");
+  const limit = parseInt(c.req.query("limit") || "100");
+
+  if (!symbol) {
+    return c.json({ error: "Symbol parameter is required" }, 400);
+  }
+
+  try {
+    const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
+    
+    if (!queriedPools || queriedPools.length === 0) {
+      return c.json({ error: "Pool not found" }, 404);
+    }
+    
+    const poolId = queriedPools[0]!.orderBook;
+    const chainId = queriedPools[0]!.chainId;
+    
+    if (!poolId) {
+      return c.json({ error: "Pool order book address not found" }, 404);
+    }
+    
+    const bids = await db
+      .select()
+      .from(orderBookDepth)
+      .where(
+        and(
+          eq(orderBookDepth.poolId, poolId),
+          eq(orderBookDepth.chainId, chainId),
+          eq(orderBookDepth.side, "Buy"),
+          gt(orderBookDepth.quantity, BigInt(0))
+        )
+      )
+      .orderBy(desc(orderBookDepth.price))
+      .limit(limit)
+      .execute();
+    
+    const asks = await db
+      .select()
+      .from(orderBookDepth)
+      .where(
+        and(
+          eq(orderBookDepth.poolId, poolId),
+          eq(orderBookDepth.chainId, chainId),
+          eq(orderBookDepth.side, "Sell"),
+          gt(orderBookDepth.quantity, BigInt(0))
+        )
+      )
+      .orderBy(orderBookDepth.price)
+      .limit(limit)
+      .execute();
+    
+    const response = {
+      lastUpdateId: Date.now(),
+      bids: bids.map(bid => [bid.price.toString(), bid.quantity.toString()]),
+      asks: asks.map(ask => [ask.price.toString(), ask.quantity.toString()])
+    };
+    
+    return c.json(response);
+  } catch (error) {
+    return c.json({ error: `Failed to fetch depth data: ${error}` }, 500);
+  }
+});
+
+app.get("/api/trades", async (c) => {
+  const symbol = c.req.query("symbol");
+  const limit = parseInt(c.req.query("limit") || "500");
+
+  if (!symbol) {
+    return c.json({ error: "Symbol parameter is required" }, 400);
+  }
+
+  try {
+    const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
+    
+    if (!queriedPools || queriedPools.length === 0) {
+      return c.json({ error: "Pool not found" }, 404);
+    }
+    
+    const poolId = queriedPools[0]!.orderBook;
+    
+    if (!poolId) {
+      return c.json({ error: "Pool order book address not found" }, 404);
+    }
+    
+    const recentTrades = await db
+      .select()
+      .from(orderBookTrades)
+      .where(eq(orderBookTrades.poolId, poolId))
+      .orderBy(desc(orderBookTrades.timestamp))
+      .limit(limit)
+      .execute();
+    
+    const formattedTrades = recentTrades.map(trade => ({
+      id: trade.id || "",
+      price: trade.price ? trade.price.toString() : "0",
+      qty: trade.quantity ? trade.quantity.toString() : "0",
+      time: trade.timestamp ? trade.timestamp * 1000 : Date.now(),
+      isBuyerMaker: trade.side === "Sell",
+      isBestMatch: true
+    }));
+    
+    return c.json(formattedTrades);
+  } catch (error) {
+    return c.json({ error: `Failed to fetch trades data: ${error}` }, 500);
+  }
+});
+
+app.get("/api/ticker/24hr", async (c) => {
+  const symbol = c.req.query("symbol");
+
+  if (!symbol) {
+    return c.json({ error: "Symbol parameter is required" }, 400);
+  }
+
+  try {
+    const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
+    
+    if (!queriedPools || queriedPools.length === 0) {
+      return c.json({ error: "Pool not found" }, 404);
+    }
+    
+    const poolId = queriedPools[0]!.orderBook;
+    
+    if (!poolId) {
+      return c.json({ error: "Pool order book address not found" }, 404);
+    }
+    
+    const now = Math.floor(Date.now() / 1000);
+    const oneDayAgo = now - 86400; 
+    
+    const dailyStats = await db
+      .select()
+      .from(dailyBuckets)
+      .where(
+        and(
+          eq(dailyBuckets.poolId, poolId),
+          gte(dailyBuckets.openTime, oneDayAgo)
+        )
+      )
+      .orderBy(desc(dailyBuckets.openTime))
+      .limit(1)
+      .execute();
+    
+    const latestTrade = await db
+      .select()
+      .from(orderBookTrades)
+      .where(eq(orderBookTrades.poolId, poolId))
+      .orderBy(desc(orderBookTrades.timestamp))
+      .limit(1)
+      .execute();
+      
+    const bestBids = await db
+      .select()
+      .from(orderBookDepth)
+      .where(
+        and(
+          eq(orderBookDepth.poolId, poolId),
+          eq(orderBookDepth.side, "Buy")
+        )
+      )
+      .orderBy(desc(orderBookDepth.price))
+      .limit(1)
+      .execute();
+      
+    const bestAsks = await db
+      .select()
+      .from(orderBookDepth)
+      .where(
+        and(
+          eq(orderBookDepth.poolId, poolId),
+          eq(orderBookDepth.side, "Sell")
+        )
+      )
+      .orderBy(orderBookDepth.price)
+      .limit(1)
+      .execute();
+    
+    interface DailyStats {
+      open?: bigint | null;
+      high?: bigint | null;
+      low?: bigint | null;
+      volume?: bigint | null;
+      quoteVolume?: bigint | null;
+      openTime?: number | null;
+      count?: number | null;
+      average?: bigint | null;
+    }
+    
+    const stats = (dailyStats[0] || {}) as DailyStats;
+    const lastPrice = latestTrade[0]?.price?.toString() || "0";
+    
+    const openPrice = stats.open?.toString() ?? "0";
+    const highPrice = stats.high?.toString() ?? "0";
+    const lowPrice = stats.low?.toString() ?? "0";
+    const volumeValue = stats.volume?.toString() ?? "0";
+    const quoteVolumeValue = stats.quoteVolume?.toString() ?? "0";
+    const openTimeValue = stats.openTime ? stats.openTime * 1000 : oneDayAgo * 1000;
+    const countValue = stats.count ?? 0;
+    const averageValue = stats.average?.toString() ?? "0";
+    
+    const prevClosePrice = openPrice || lastPrice;
+    
+    const priceChange = (parseFloat(lastPrice) - parseFloat(prevClosePrice)).toString();
+    const priceChangePercent = parseFloat(prevClosePrice) > 0 
+      ? ((parseFloat(lastPrice) - parseFloat(prevClosePrice)) / parseFloat(prevClosePrice) * 100).toFixed(2)
+      : "0.00";
+    
+    const response = {
+      symbol: symbol,
+      priceChange: priceChange,
+      priceChangePercent: priceChangePercent,
+      weightedAvgPrice: averageValue,
+      prevClosePrice: prevClosePrice,
+      lastPrice: lastPrice,
+      lastQty: latestTrade[0]?.quantity?.toString() || "0",
+      bidPrice: bestBids[0]?.price?.toString() || "0",
+      askPrice: bestAsks[0]?.price?.toString() || "0",
+      openPrice: openPrice,
+      highPrice: highPrice,
+      lowPrice: lowPrice,
+      volume: volumeValue,
+      quoteVolume: quoteVolumeValue,
+      openTime: openTimeValue,
+      closeTime: now * 1000,
+      firstId: "0",
+      lastId: latestTrade[0]?.id || "0",
+      count: countValue
+    };
+    
+    return c.json(response);
+  } catch (error) {
+    return c.json({ error: `Failed to fetch 24hr ticker data: ${error}` }, 500);
+  }
+});
+
+app.get("/api/ticker/price", async (c) => {
+  const symbol = c.req.query("symbol");
+
+  if (!symbol) {
+    return c.json({ error: "Symbol parameter is required" }, 400);
+  }
+
+  try {
+    const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
+    
+    if (!queriedPools || queriedPools.length === 0) {
+      return c.json({ error: "Pool not found" }, 404);
+    }
+    
+    const poolId = queriedPools[0]!.orderBook;
+    
+    if (!poolId) {
+      return c.json({ error: "Pool order book address not found" }, 404);
+    }
+    
+    const latestTrade = await db
+      .select()
+      .from(orderBookTrades)
+      .where(eq(orderBookTrades.poolId, poolId))
+      .orderBy(desc(orderBookTrades.timestamp))
+      .limit(1)
+      .execute();
+    
+    let price = "0";
+    if (latestTrade.length > 0 && latestTrade[0]?.price) {
+      price = latestTrade[0].price.toString();
+    } else if (queriedPools[0]?.price) {
+      price = queriedPools[0].price.toString();
+    }
+    
+    const response = {
+      symbol: symbol,
+      price: price
+    };
+    
+    return c.json(response);
+  } catch (error) {
+    return c.json({ error: `Failed to fetch price data: ${error}` }, 500);
   }
 });
 

@@ -69,6 +69,44 @@ export const orderHistory = onchainTable(
 	})
 );
 
+export const orderBookDepth = onchainTable(
+	"order_book_depth",
+	t => ({
+		id: t.text().primaryKey(), 
+		chainId: t.integer().notNull(),
+		poolId: t.hex().notNull(),
+		side: t.varchar().notNull(), 
+		price: t.bigint().notNull(),
+		quantity: t.bigint().notNull(), 
+		orderCount: t.integer().notNull(), 
+		lastUpdated: t.integer().notNull(),
+	}),
+	table => ({
+		poolSideIdx: index().on(table.poolId, table.side),
+		poolPriceIdx: index().on(table.poolId, table.price),
+		chainIdIdx: index().on(table.chainId),
+		lastUpdatedIdx: index().on(table.lastUpdated),
+	})
+);
+
+export const orderBookDepthSnapshots = onchainTable(
+	"order_book_depth_snapshots",
+	t => ({
+		id: t.text().primaryKey(),	
+		chainId: t.integer().notNull(),
+		poolId: t.hex().notNull(),
+		timestamp: t.bigint().notNull(),
+		snapshotData: t.text().notNull(),
+		sequenceNumber: t.bigint().notNull(),
+		changeCount: t.integer().notNull(),
+	}),
+	table => ({
+		poolTimeIdx: index().on(table.poolId, table.timestamp),
+		chainIdIdx: index().on(table.chainId),
+		sequenceIdx: index().on(table.sequenceNumber),
+	})
+);
+
 export const ordersRelations = relations(orders, ({ many, one }) => ({
 	orderHistory: many(orderHistory),
 	pool: one(pools, {
@@ -89,6 +127,14 @@ export const orderHistoryRelations = relations(orderHistory, ({ one }) => ({
 	pool: one(pools, {
 		fields: [orderHistory.poolId],
 		references: [pools.id],
+	}),
+}));
+
+// Depth Relations
+export const orderBookDepthRelations = relations(orderBookDepth, ({ one }) => ({
+	pool: one(pools, {
+		fields: [orderBookDepth.poolId, orderBookDepth.chainId],
+		references: [pools.id, pools.chainId],
 	}),
 }));
 
