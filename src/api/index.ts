@@ -1,13 +1,16 @@
 import { Hono } from "hono";
-import { and, client, desc, eq, graphql, gt, gte, lte } from "ponder";
+import { and, client, desc, eq, graphql, gt, gte, lte, or, sql } from "ponder";
 import { db } from "ponder:api";
 import schema, {
+  balances,
+  currencies,
   dailyBuckets,
   fiveMinuteBuckets,
   hourBuckets,
   minuteBuckets,
   orderBookDepth,
   orderBookTrades,
+  orders,
   pools,
   thirtyMinuteBuckets
 } from "ponder:schema";
@@ -65,7 +68,7 @@ app.get("/api/kline/mocks", async (c) => {
   if (!symbol) {
     return c.json({ error: "Symbol parameter is required" }, 400);
   }
-  
+
   const mockData = generateMockKlineData(symbol, interval, startTime, endTime, limit);
   return c.json(mockData);
 });
@@ -115,7 +118,7 @@ app.get("/api/kline", async (c) => {
       .execute();
 
     const formattedData = klineData.map((bucket: BucketData) => formatKlineData(bucket));
-    
+
     return c.json(formattedData);
   } catch (error) {
     return c.json({ error: `Failed to fetch kline data: ${error}` }, 500);
@@ -132,18 +135,18 @@ app.get("/api/depth", async (c) => {
 
   try {
     const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
-    
+
     if (!queriedPools || queriedPools.length === 0) {
       return c.json({ error: "Pool not found" }, 404);
     }
-    
+
     const poolId = queriedPools[0]!.orderBook;
     const chainId = queriedPools[0]!.chainId;
-    
+
     if (!poolId) {
       return c.json({ error: "Pool order book address not found" }, 404);
     }
-    
+
     const bids = await db
       .select()
       .from(orderBookDepth)
@@ -158,7 +161,7 @@ app.get("/api/depth", async (c) => {
       .orderBy(desc(orderBookDepth.price))
       .limit(limit)
       .execute();
-    
+
     const asks = await db
       .select()
       .from(orderBookDepth)
@@ -173,13 +176,13 @@ app.get("/api/depth", async (c) => {
       .orderBy(orderBookDepth.price)
       .limit(limit)
       .execute();
-    
+
     const response = {
       lastUpdateId: Date.now(),
       bids: bids.map(bid => [bid.price.toString(), bid.quantity.toString()]),
       asks: asks.map(ask => [ask.price.toString(), ask.quantity.toString()])
     };
-    
+
     return c.json(response);
   } catch (error) {
     return c.json({ error: `Failed to fetch depth data: ${error}` }, 500);
@@ -196,17 +199,17 @@ app.get("/api/trades", async (c) => {
 
   try {
     const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
-    
+
     if (!queriedPools || queriedPools.length === 0) {
       return c.json({ error: "Pool not found" }, 404);
     }
-    
+
     const poolId = queriedPools[0]!.orderBook;
-    
+
     if (!poolId) {
       return c.json({ error: "Pool order book address not found" }, 404);
     }
-    
+
     const recentTrades = await db
       .select()
       .from(orderBookTrades)
@@ -214,7 +217,7 @@ app.get("/api/trades", async (c) => {
       .orderBy(desc(orderBookTrades.timestamp))
       .limit(limit)
       .execute();
-    
+
     const formattedTrades = recentTrades.map(trade => ({
       id: trade.id || "",
       price: trade.price ? trade.price.toString() : "0",
@@ -223,7 +226,7 @@ app.get("/api/trades", async (c) => {
       isBuyerMaker: trade.side === "Sell",
       isBestMatch: true
     }));
-    
+
     return c.json(formattedTrades);
   } catch (error) {
     return c.json({ error: `Failed to fetch trades data: ${error}` }, 500);
@@ -239,20 +242,20 @@ app.get("/api/ticker/24hr", async (c) => {
 
   try {
     const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
-    
+
     if (!queriedPools || queriedPools.length === 0) {
       return c.json({ error: "Pool not found" }, 404);
     }
-    
+
     const poolId = queriedPools[0]!.orderBook;
-    
+
     if (!poolId) {
       return c.json({ error: "Pool order book address not found" }, 404);
     }
-    
+
     const now = Math.floor(Date.now() / 1000);
-    const oneDayAgo = now - 86400; 
-    
+    const oneDayAgo = now - 86400;
+
     const dailyStats = await db
       .select()
       .from(dailyBuckets)
@@ -265,7 +268,7 @@ app.get("/api/ticker/24hr", async (c) => {
       .orderBy(desc(dailyBuckets.openTime))
       .limit(1)
       .execute();
-    
+
     const latestTrade = await db
       .select()
       .from(orderBookTrades)
@@ -273,7 +276,7 @@ app.get("/api/ticker/24hr", async (c) => {
       .orderBy(desc(orderBookTrades.timestamp))
       .limit(1)
       .execute();
-      
+
     const bestBids = await db
       .select()
       .from(orderBookDepth)
@@ -286,7 +289,7 @@ app.get("/api/ticker/24hr", async (c) => {
       .orderBy(desc(orderBookDepth.price))
       .limit(1)
       .execute();
-      
+
     const bestAsks = await db
       .select()
       .from(orderBookDepth)
@@ -299,7 +302,7 @@ app.get("/api/ticker/24hr", async (c) => {
       .orderBy(orderBookDepth.price)
       .limit(1)
       .execute();
-    
+
     interface DailyStats {
       open?: bigint | null;
       high?: bigint | null;
@@ -310,10 +313,10 @@ app.get("/api/ticker/24hr", async (c) => {
       count?: number | null;
       average?: bigint | null;
     }
-    
+
     const stats = (dailyStats[0] || {}) as DailyStats;
     const lastPrice = latestTrade[0]?.price?.toString() || "0";
-    
+
     const openPrice = stats.open?.toString() ?? "0";
     const highPrice = stats.high?.toString() ?? "0";
     const lowPrice = stats.low?.toString() ?? "0";
@@ -322,14 +325,14 @@ app.get("/api/ticker/24hr", async (c) => {
     const openTimeValue = stats.openTime ? stats.openTime * 1000 : oneDayAgo * 1000;
     const countValue = stats.count ?? 0;
     const averageValue = stats.average?.toString() ?? "0";
-    
+
     const prevClosePrice = openPrice || lastPrice;
-    
+
     const priceChange = (parseFloat(lastPrice) - parseFloat(prevClosePrice)).toString();
-    const priceChangePercent = parseFloat(prevClosePrice) > 0 
+    const priceChangePercent = parseFloat(prevClosePrice) > 0
       ? ((parseFloat(lastPrice) - parseFloat(prevClosePrice)) / parseFloat(prevClosePrice) * 100).toFixed(2)
       : "0.00";
-    
+
     const response = {
       symbol: symbol,
       priceChange: priceChange,
@@ -351,7 +354,7 @@ app.get("/api/ticker/24hr", async (c) => {
       lastId: latestTrade[0]?.id || "0",
       count: countValue
     };
-    
+
     return c.json(response);
   } catch (error) {
     return c.json({ error: `Failed to fetch 24hr ticker data: ${error}` }, 500);
@@ -367,17 +370,17 @@ app.get("/api/ticker/price", async (c) => {
 
   try {
     const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
-    
+
     if (!queriedPools || queriedPools.length === 0) {
       return c.json({ error: "Pool not found" }, 404);
     }
-    
+
     const poolId = queriedPools[0]!.orderBook;
-    
+
     if (!poolId) {
       return c.json({ error: "Pool order book address not found" }, 404);
     }
-    
+
     const latestTrade = await db
       .select()
       .from(orderBookTrades)
@@ -385,22 +388,239 @@ app.get("/api/ticker/price", async (c) => {
       .orderBy(desc(orderBookTrades.timestamp))
       .limit(1)
       .execute();
-    
+
     let price = "0";
     if (latestTrade.length > 0 && latestTrade[0]?.price) {
       price = latestTrade[0].price.toString();
     } else if (queriedPools[0]?.price) {
       price = queriedPools[0].price.toString();
     }
-    
+
     const response = {
       symbol: symbol,
       price: price
     };
-    
+
     return c.json(response);
   } catch (error) {
     return c.json({ error: `Failed to fetch price data: ${error}` }, 500);
+  }
+});
+
+app.get("/api/allOrders", async (c) => {
+  const symbol = c.req.query("symbol");
+  const limit = parseInt(c.req.query("limit") || "500");
+  const address = c.req.query("address");
+
+  if (!address) {
+    return c.json({ error: "Address parameter is required" }, 400);
+  }
+
+  try {
+    const baseQuery = db.select().from(orders);
+    let query = baseQuery.where(eq(orders.user, address as `0x${string}`));
+
+    if (symbol) {
+      const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
+
+      if (!queriedPools || queriedPools.length === 0) {
+        return c.json({ error: "Pool not found" }, 404);
+      }
+
+      const poolId = queriedPools[0]!.orderBook;
+      if (poolId) {
+        query = query.where(eq(orders.poolId, poolId));
+      }
+    }
+
+    const userOrders = await query.orderBy(desc(orders.timestamp)).limit(limit).execute();
+
+    const formattedOrders = await Promise.all(userOrders.map(async order => {
+      let decimals = 18;
+
+      if (order.poolId) {
+        const poolInfo = await db.select().from(pools).where(eq(pools.orderBook, order.poolId as `0x${string}`)).execute();
+        if (poolInfo.length > 0 && poolInfo[0]?.quoteDecimals) {
+          decimals = Number(poolInfo[0].quoteDecimals);
+        }
+      }
+
+      return ({
+        symbol: symbol || "UNKNOWN",
+        orderId: order.orderId.toString(),
+        orderListId: -1,
+        clientOrderId: order.id,
+        price: order.price.toString(),
+        origQty: order.quantity.toString(),
+        executedQty: order.filled.toString(),
+        cummulativeQuoteQty: order.filled && order.price
+          ? (BigInt(order.filled) * BigInt(order.price) / BigInt(10 ** decimals)).toString()
+          : "0",
+        status: order.status,
+        timeInForce: "GTC",
+        type: order.type,
+        side: order.side.toUpperCase(),
+        stopPrice: "0",
+        icebergQty: "0",
+        time: Number(order.timestamp) * 1000,
+        updateTime: Number(order.timestamp) * 1000,
+        isWorking: order.status === "NEW" || order.status === "PARTIALLY_FILLED",
+        origQuoteOrderQty: "0"
+      })
+    }));
+
+    return c.json(formattedOrders);
+  } catch (error) {
+    return c.json({ error: `Failed to fetch orders: ${error}` }, 500);
+  }
+});
+
+app.get("/api/openOrders", async (c) => {
+  const symbol = c.req.query("symbol");
+  const address = c.req.query("address");
+
+  if (!address) {
+    return c.json({ error: "Address parameter is required" }, 400);
+  }
+
+  try {
+    const baseQuery = db.select().from(orders);
+    let query = baseQuery.where(
+      and(
+        eq(orders.user, address as `0x${string}`),
+        or(
+          eq(orders.status, "NEW"),
+          eq(orders.status, "PARTIALLY_FILLED"),
+          eq(orders.status, "OPEN")
+        )
+      )
+    );
+
+    if (symbol) {
+      const queriedPools = await db.select().from(pools).where(eq(pools.coin, symbol));
+
+      if (!queriedPools || queriedPools.length === 0) {
+        return c.json({ error: "Pool not found" }, 404);
+      }
+
+      const poolId = queriedPools[0]!.orderBook;
+      if (poolId) {
+        query = query.where(eq(orders.poolId, poolId));
+      }
+    }
+
+    const openOrders = await query.orderBy(desc(orders.timestamp)).execute();
+
+    const formattedOrders = await Promise.all(openOrders.map(async (order) => {
+      let orderSymbol = symbol;
+      let decimals = 18;
+
+      if (order.poolId) {
+        const pool = await db
+          .select()
+          .from(pools)
+          .where(eq(pools.orderBook, order.poolId as `0x${string}`))
+          .execute();
+
+        orderSymbol = pool[0]?.coin || "UNKNOWN";
+
+        if (pool.length > 0 && pool[0]?.quoteDecimals) {
+          decimals = Number(pool[0].quoteDecimals);
+        }
+      }
+
+      return {
+        symbol: orderSymbol,
+        orderId: order.orderId.toString(),
+        orderListId: -1,
+        clientOrderId: order.id,
+        price: order.price.toString(),
+        origQty: order.quantity.toString(),
+        executedQty: order.filled.toString(),
+        cummulativeQuoteQty: order.filled && order.price
+          ? (BigInt(order.filled) * BigInt(order.price) / BigInt(10 ** decimals)).toString()
+          : "0",
+        status: order.status,
+        timeInForce: "GTC",
+        type: order.type,
+        side: order.side.toUpperCase(),
+        stopPrice: "0",
+        icebergQty: "0",
+        time: Number(order.timestamp) * 1000,
+        updateTime: Number(order.timestamp) * 1000,
+        isWorking: true,
+        origQuoteOrderQty: "0"
+      };
+    }));
+
+    return c.json(formattedOrders);
+  } catch (error) {
+    return c.json({ error: `Failed to fetch open orders: ${error}` }, 500);
+  }
+});
+
+app.get("/api/account", async (c) => {
+  const address = c.req.query("address");
+
+  if (!address) {
+    return c.json({ error: "Address parameter is required" }, 400);
+  }
+
+  try {
+    const userBalances = await db
+      .select()
+      .from(balances)
+      .where(eq(balances.user, address as `0x${string}`))
+      .execute();
+
+    const balancesWithInfo = await Promise.all(userBalances.map(async (balance) => {
+      const currency = await db
+        .select()
+        .from(currencies)
+        .where(
+          and(
+            eq(currencies.address, balance.currency as `0x${string}`),
+            eq(currencies.chainId, balance.chainId)
+          )
+        )
+        .execute();
+
+      const symbol = currency[0]?.symbol || "UNKNOWN";
+
+      const amount = BigInt(balance.amount || 0);
+      const locked = BigInt(balance.lockedAmount || 0);
+      const free = amount >= locked ? (amount - locked).toString() : "0";
+
+      return {
+        asset: symbol,
+        free: free,
+        locked: balance.lockedAmount?.toString() || "0"
+      };
+    }));
+
+    const orderCount = await db
+      .select({ count: sql`count(*)` })
+      .from(orders)
+      .where(eq(orders.user, address as `0x${string}`))
+      .execute();
+
+    const response = {
+      makerCommission: 0,
+      takerCommission: 0,
+      buyerCommission: 0,
+      sellerCommission: 0,
+      canTrade: true,
+      canWithdraw: true,
+      canDeposit: true,
+      updateTime: Date.now(),
+      accountType: "SPOT",
+      balances: balancesWithInfo,
+      permissions: ["SPOT"]
+    };
+
+    return c.json(response);
+  } catch (error) {
+    return c.json({ error: `Failed to fetch account information: ${error}` }, 500);
   }
 });
 
@@ -423,18 +643,18 @@ function formatKlineData(bucket: BucketData): BinanceKlineData {
   // ]
 
   return [
-    bucket.openTime * 1000,                
-    bucket.open.toString(),           
-    bucket.high.toString(),          
-    bucket.low.toString(),            
-    bucket.close.toString(),        
-    bucket.volume.toString(),        
-    bucket.closeTime * 1000,           
+    bucket.openTime * 1000,
+    bucket.open.toString(),
+    bucket.high.toString(),
+    bucket.low.toString(),
+    bucket.close.toString(),
+    bucket.volume.toString(),
+    bucket.closeTime * 1000,
     bucket.quoteVolume.toString(),
-    bucket.count,               
-    bucket.takerBuyBaseVolume.toString(), 
+    bucket.count,
+    bucket.takerBuyBaseVolume.toString(),
     bucket.takerBuyQuoteVolume.toString(),
-    "0"     
+    "0"
   ];
 }
 
@@ -516,6 +736,6 @@ function getIntervalInMs(interval: string): number {
   }
 }
 
-bootstrapGateway(app);  
+bootstrapGateway(app);
 
 export default app;     
