@@ -2,7 +2,7 @@ module.exports = {
     apps: [
         {
             name: "ponder-pg",
-            script: "./start-ponder.sh",
+            script: "./start-ponder-dev.sh",
             args: "42069 rise pg-ponder.config.ts",
             autorestart: true,
             watch: false,
