@@ -51,7 +51,7 @@ export async function handleDeposit({event, context}: any) {
 export async function handleWithdrawal({event, context}: any) {
     const chainId = context.network.chainId;
     const user = event.args.user;
-    const currency = getAddress(toHex(event.args.id));
+    const currency = getAddress(fromId(event.args.id));
     const balanceId = createBalanceId(chainId, currency, user);
 
     await context.db
