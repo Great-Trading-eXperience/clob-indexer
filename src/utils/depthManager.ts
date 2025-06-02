@@ -110,21 +110,11 @@ export class DepthManager {
         const cutoffTime = currentTimestamp - (100 * 1000);
 
         try {
-            if (!context.db?.isConnected?.()) {
-                throw new Error('Database connection not established');
-            }
-
-            const deleteResult = await context.db
-                .delete(orderBookDepthSnapshots)
-                .where(
-                    and(
-                        eq(orderBookDepthSnapshots.poolId, validatedPoolId),
-                        eq(orderBookDepthSnapshots.chainId, chainId),
-                        lt(orderBookDepthSnapshots.timestamp, BigInt(cutoffTime))
-                    )
-                )
-                .limit(1000)
-                .returning();
+            const deleteResult = await context.db.sql.delete(orderBookDepthSnapshots, {
+                poolId: validatedPoolId,
+                chainId: chainId,
+                timestamp: BigInt(cutoffTime)
+            });
 
             console.log(`Cleaned ${deleteResult.length} snapshots`);
 

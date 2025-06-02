@@ -2,35 +2,35 @@ import { randomBytes } from "crypto";
 import { Hono } from "hono";
 import { createServer, IncomingMessage, ServerResponse } from "http";
 import { URL } from "url";
+import type { WebSocket as WSWebSocket } from "ws";
 import { registerBroadcastFns } from "./broadcaster";
 
-const { WebSocket, WebSocketServer } = require("ws");
-import type { WebSocket as WSWebSocket } from "ws";
+const { WebSocketServer } = require("ws");
 
 const ENABLED_WEBSOCKET_LOG = process.env.ENABLE_WEBSOCKET_LOG === 'true';
 
 interface BinanceControl {
-    method ? : "SUBSCRIBE" | "UNSUBSCRIBE" | "LIST_SUBSCRIPTIONS" | "PING" | "PONG";
-    params ? : string[];
-    id ? : number | string | null;
+    method?: "SUBSCRIBE" | "UNSUBSCRIBE" | "LIST_SUBSCRIPTIONS" | "PING" | "PONG";
+    params?: string[];
+    id?: number | string | null;
 }
 
 interface ClientState {
-    streams: Set < string > ;
+    streams: Set<string>;
     lastCtrl: number;
     isUser: boolean;
-    userId ? : string;
+    userId?: string;
 }
 
-const clients = new Map < WSWebSocket,
-    ClientState > ();
-const listenKeys = new Map < string,
+const clients = new Map<WSWebSocket,
+    ClientState>();
+const listenKeys = new Map<string,
     {
-        userId: string;expireTs: number
-    } > ();
-const ORDER_BOOKS: Record < string, {
-    bids: [string, string][];asks: [string, string][];lastUpdateId: number
-} > = {};
+        userId: string; expireTs: number
+    }>();
+const ORDER_BOOKS: Record<string, {
+    bids: [string, string][]; asks: [string, string][]; lastUpdateId: number
+}> = {};
 const allowCtrl = (s: ClientState) => {
     const n = Date.now();
     if (n - s.lastCtrl < 200) return false;
@@ -142,16 +142,25 @@ export function bootstrapGateway(app: Hono) {
     };
 
     const fns = {
-        pushTrade: (sym: string, id: number, p: string, q: string, m: boolean, ts: number) => emit(`${sym}@trade`, {
-            e: "trade",
-            E: ts,
-            s: sym.toUpperCase(),
-            t: id,
-            p,
-            q,
-            m
-        }),
+        pushTrade: (sym: string, id: number, p: string, q: string, m: boolean, ts: number) => {
+            if (ENABLED_WEBSOCKET_LOG) {
+                console.log("pushTrade", `${sym}@trade`, id, p, q, m, ts);
+            }
+            emit(`${sym}@trade`, {
+                e: "trade",
+                E: Date.now(),
+                s: sym.toUpperCase(),
+                t: id,
+                p,
+                q,
+                m,
+                T: ts
+            });
+        },
         pushDepth: (sym: string, b: [string, string][], a: [string, string][]) => {
+            if (ENABLED_WEBSOCKET_LOG) {
+                console.log("pushDepth", `${sym}@depth`, b, a);
+            }
             const ob = ORDER_BOOKS[sym] || (ORDER_BOOKS[sym] = {
                 bids: [],
                 asks: [],
@@ -170,23 +179,43 @@ export function bootstrapGateway(app: Hono) {
                 a
             });
         },
-        pushKline: (sym: string, int: string, k: any) => emit(`${sym}@kline_${int}`, {
-            e: "kline",
-            E: Date.now(),
-            s: sym.toUpperCase(),
-            k
-        }),
-        pushMiniTicker: (sym: string, c: string, h: string, l: string, v: string) => emit(`${sym}@miniTicker`, {
-            e: "24hrMiniTicker",
-            E: Date.now(),
-            s: sym.toUpperCase(),
-            c,
-            h,
-            l,
-            v
-        }),
-        pushExecutionReport: (u: string, r: any) => emitUser(u, r),
-        pushBalanceUpdate: (u: string, b: any) => emitUser(u, b),
+        pushKline: (sym: string, int: string, k: any) => {
+            if (ENABLED_WEBSOCKET_LOG) {
+                console.log("pushKline", `${sym}@kline_${int}`, k);
+            }
+            emit(`${sym}@kline_${int}`, {
+                e: "kline",
+                E: Date.now(),
+                s: sym.toUpperCase(),
+                k
+            });
+        },
+        pushMiniTicker: (sym: string, c: string, h: string, l: string, v: string) => {
+            if (ENABLED_WEBSOCKET_LOG) {
+                console.log("pushMiniTicker", `${sym}@miniTicker`, c, h, l, v);
+            }
+            emit(`${sym}@miniTicker`, {
+                e: "24hrMiniTicker",
+                E: Date.now(),
+                s: sym.toUpperCase(),
+                c,
+                h,
+                l,
+                v
+            });
+        },
+        pushExecutionReport: (u: string, r: any) => {
+            if (ENABLED_WEBSOCKET_LOG) {
+                console.log("pushExecutionReport", u, r);
+            }
+            emitUser(u, r);
+        },
+        pushBalanceUpdate: (u: string, b: any) => {
+            if (ENABLED_WEBSOCKET_LOG) {
+                console.log("pushBalanceUpdate", u, b);
+            }
+            emitUser(u, b);
+        },
     } as const;
 
     registerBroadcastFns(fns);

@@ -91,7 +91,7 @@ export async function handleOrderPlaced({ event, context }: any) {
 
         if (ENABLED_WEBSOCKET) {
             const order = (await context.db.sql.select().from(orders).where(eq(orders.id, id)).execute())[0];
-            pushExecutionReport(symbol.toLowerCase(), order.user, order, "NEW", "NEW", BigInt(0), BigInt(0), timestamp);
+            pushExecutionReport(symbol.toLowerCase(), order.user, order, "NEW", "NEW", BigInt(0), BigInt(0), timestamp * 1000);
 
             const latestDepth = await getDepth(event.log.address!, context, chainId);
             pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
@@ -255,16 +255,16 @@ export async function handleOrderMatched({ event, context }: any) {
     }
 
     if (ENABLED_WEBSOCKET) {
-        pushTrade(symbol, timestamp, event.args.executionPrice.toString(), event.args.executedQuantity.toString(), !!event.args.side, timestamp);
+        pushTrade(symbol.toLowerCase(), event.transaction.hash, event.args.executionPrice.toString(), event.args.executedQuantity.toString(), !!event.args.side, timestamp * 1000);
 
         const buyRow = (await context.db.sql.select().from(orders).where(eq(orders.orderId, BigInt(event.args.buyOrderId!))).execute())[0];
         const sellRow = (await context.db.sql.select().from(orders).where(eq(orders.orderId, BigInt(event.args.sellOrderId!))).execute())[0];
 
-        if (buyRow) pushExecutionReport(symbol, buyRow.user, buyRow, "TRADE", buyRow.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), timestamp);
-        if (sellRow) pushExecutionReport(symbol, sellRow.user, sellRow, "TRADE", sellRow.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), timestamp);
+        if (buyRow) pushExecutionReport(symbol.toLowerCase(), buyRow.user, buyRow, "TRADE", buyRow.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), timestamp * 1000);
+        if (sellRow) pushExecutionReport(symbol.toLowerCase(), sellRow.user, sellRow, "TRADE", sellRow.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), timestamp * 1000);
 
         const latestDepth = await getDepth(event.log.address!, context, chainId);
-        pushDepth(symbol, latestDepth.bids as any, latestDepth.asks as any);
+        pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
 
         // Broadcast a mini‑ticker so front‑ends get last price/volume widgets
         pushMiniTicker(
@@ -303,9 +303,9 @@ export async function handleOrderCancelled({ event, context }: any) {
 
         if (!row) return;
 
-        pushExecutionReport(symbol, row.user, row, "CANCELED", "CANCELED", BigInt(0), BigInt(0), timestamp);
+        pushExecutionReport(symbol.toLowerCase(), row.user, row, "CANCELED", "CANCELED", BigInt(0), BigInt(0), timestamp);
         const latestDepth = await getDepth(event.log.address!, context, chainId);
-        pushDepth(symbol, latestDepth.bids as any, latestDepth.asks as any);
+        pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
     }
 }
 
@@ -354,8 +354,8 @@ export async function handleUpdateOrder({ event, context }: any) {
 
         if (!row) return;
 
-        pushExecutionReport(symbol, row.user, row, "TRADE", row.status, BigInt(event.args.filled), row.price, timestamp);
+        pushExecutionReport(symbol.toLowerCase(), row.user, row, "TRADE", row.status, BigInt(event.args.filled), row.price, timestamp * 1000);
         const latestDepth = await getDepth(event.log.address!, context, chainId);
-        pushDepth(symbol, latestDepth.bids as any, latestDepth.asks as any);
+        pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
     }
 }
