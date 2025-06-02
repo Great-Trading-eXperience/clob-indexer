@@ -192,6 +192,7 @@ app.get("/api/depth", async (c) => {
 app.get("/api/trades", async (c) => {
   const symbol = c.req.query("symbol");
   const limit = parseInt(c.req.query("limit") || "500");
+  const user = c.req.query("user");
 
   if (!symbol) {
     return c.json({ error: "Symbol parameter is required" }, 400);
@@ -210,13 +211,36 @@ app.get("/api/trades", async (c) => {
       return c.json({ error: "Pool order book address not found" }, 404);
     }
 
-    const recentTrades = await db
-      .select()
-      .from(orderBookTrades)
-      .where(eq(orderBookTrades.poolId, poolId))
-      .orderBy(desc(orderBookTrades.timestamp))
-      .limit(limit)
-      .execute();
+    let recentTrades;
+
+    if (user) {
+      const userTrades = await db
+        .select({
+          trade: orderBookTrades,
+          order: orders
+        })
+        .from(orderBookTrades)
+        .innerJoin(orders, eq(orderBookTrades.poolId, orders.poolId))
+        .where(
+          and(
+            eq(orderBookTrades.poolId, poolId),
+            eq(orders.user, user.toLowerCase())
+          )
+        )
+        .orderBy(desc(orderBookTrades.timestamp))
+        .limit(limit)
+        .execute();
+
+      recentTrades = userTrades.map(result => result.trade);
+    } else {
+      recentTrades = await db
+        .select()
+        .from(orderBookTrades)
+        .where(eq(orderBookTrades.poolId, poolId))
+        .orderBy(desc(orderBookTrades.timestamp))
+        .limit(limit)
+        .execute();
+    }
 
     const formattedTrades = recentTrades.map(trade => ({
       id: trade.id || "",
