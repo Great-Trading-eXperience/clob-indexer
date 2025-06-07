@@ -1,29 +1,36 @@
 {
-  "name": "clob-dex",
-  "version": "0.0.1",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "ponder dev",
-    "start": "ponder start",
-    "db": "ponder db",
-    "codegen": "ponder codegen",
-    "lint": "eslint .",
-    "typecheck": "tsc"
-  },
-  "dependencies": {
-    "dotenv": "^16.5.0",
-    "hono": "^4.7.8",
-    "ponder": "^0.10.24",
-    "viem": "^2.29.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20.17.41",
-    "eslint": "^8.57.1",
-    "eslint-config-ponder": "^0.9.28",
-    "typescript": "^5.8.3"
-  },
-  "engines": {
-    "node": ">=18.14"
-  }
+	"name": "clob-dex",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "ponder dev",
+		"start": "ponder start",
+		"db": "ponder db",
+		"codegen": "ponder codegen",
+		"lint": "eslint .",
+		"typecheck": "tsc"
+	},
+	"dependencies": {
+		"dotenv": "^16.5.0",
+		"ethers": "^6.14.3",
+		"hono": "^4.7.8",
+		"pg": "^8.16.0",
+		"ponder": "^0.10.24",
+		"rise-shred-client": "^1.0.1",
+		"viem": "^2.29.0",
+		"ws": "^8.18.2"
+	},
+	"devDependencies": {
+		"@eslint/js": "^9.28.0",
+		"@types/node": "^20.17.41",
+		"eslint": "^8.57.1",
+		"eslint-config-ponder": "^0.9.28",
+		"prettier": "3.5.3",
+		"typescript": "^5.8.3",
+		"typescript-eslint": "^8.33.1"
+	},
+	"engines": {
+		"node": ">=18.14"
+	}
 }

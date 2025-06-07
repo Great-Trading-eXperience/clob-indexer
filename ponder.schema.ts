@@ -19,6 +19,7 @@ export const pools = onchainTable(
 	(table: any) => ({
 		coinIdx: index().on(table.coin),
 		chainIdIdx: index().on(table.chainId),
+		orderBookIdx: index().on(table.orderBook),
 	})
 );
 
@@ -72,13 +73,13 @@ export const orderHistory = onchainTable(
 export const orderBookDepth = onchainTable(
 	"order_book_depth",
 	t => ({
-		id: t.text().primaryKey(), 
+		id: t.text().primaryKey(),
 		chainId: t.integer().notNull(),
 		poolId: t.hex().notNull(),
-		side: t.varchar().notNull(), 
+		side: t.varchar().notNull(),
 		price: t.bigint().notNull(),
-		quantity: t.bigint().notNull(), 
-		orderCount: t.integer().notNull(), 
+		quantity: t.bigint().notNull(),
+		orderCount: t.integer().notNull(),
 		lastUpdated: t.integer().notNull(),
 	}),
 	table => ({
@@ -92,7 +93,7 @@ export const orderBookDepth = onchainTable(
 export const orderBookDepthSnapshots = onchainTable(
 	"order_book_depth_snapshots",
 	t => ({
-		id: t.text().primaryKey(),	
+		id: t.text().primaryKey(),
 		chainId: t.integer().notNull(),
 		poolId: t.hex().notNull(),
 		timestamp: t.bigint().notNull(),

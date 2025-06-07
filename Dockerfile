@@ -11,6 +11,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml* ./
 RUN pnpm install
 
+
 # Copy the rest of the app
 COPY . .
 

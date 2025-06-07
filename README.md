@@ -1,23 +1,24 @@
+# 📊 GTX CLOB DEX Indexer
 
-# 📊 GTX CLOB DEX Indexer  
+> 🚀 Supercharge your DEX experience with real-time order book data indexing
 
-> 🚀 Supercharge your DEX experience with real-time order book data indexing  
+A high-performance blockchain indexer powered by [Ponder](https://ponder.sh) that processes events from the GTX CLOB DEX (Central Limit Order Book Decentralized Exchange). It also exposes a real‑time WebSocket API so front‑ends can stream depth, trades, tickers, and personal order reports without polling.
 
-A high-performance blockchain indexer powered by [Ponder](https://ponder.sh) that processes events from the GTX CLOB DEX (Central Limit Order Book Decentralized Exchange). It also exposes a real‑time WebSocket API so front‑ends can stream depth, trades, tickers, and personal order reports without polling.  
+## 🌟 Overview
 
-## 🌟 Overview  
+This indexer is the backbone of the GTX CLOB DEX, processing and storing on-chain events in real-time. It maintains a structured database of all trading activities and market data for seamless DeFi operations.
 
-This indexer is the backbone of the GTX CLOB DEX, processing and storing on-chain events in real-time. It maintains a structured database of all trading activities and market data for seamless DeFi operations.  
+## 🔧 Core Components
 
-## 🔧 Core Components  
-
-### 🎯 Event Handlers  
+### 🎯 Event Handlers
 
 - **🏊‍♂️ PoolManager**
+
   - Pool creation & configuration
   - Trading pair setup
 
 - **📚 OrderBook**
+
   - 📝 Order placement
   - ⚡ Order matching
   - 🗑️ Order cancellation
@@ -35,33 +36,36 @@ The indexer spins up a WebSocket gateway on **ws://localhost:42080**.
 
 ### 📡 Market Streams
 
-| Stream Name              | Description                                  |
-|--------------------------|----------------------------------------------|
-| `<symbol>@depth`         | Full order book deltas                      |
-| `<symbol>@depth5@100ms`  | Top 5 bids/asks snapshot every 100 ms       |
-| `<symbol>@trade`         | Individual trade ticks                      |
-| `<symbol>@kline_1m`      | Candlestick data for 1m interval            |
-| `<symbol>@miniTicker`    | 24 h summary: last, high, low, volume       |
+| Stream Name             | Description                           |
+| ----------------------- | ------------------------------------- |
+| `<symbol>@depth`        | Full order book deltas                |
+| `<symbol>@depth5@100ms` | Top 5 bids/asks snapshot every 100 ms |
+| `<symbol>@trade`        | Individual trade ticks                |
+| `<symbol>@kline_1m`     | Candlestick data for 1m interval      |
+| `<symbol>@miniTicker`   | 24 h summary: last, high, low, volume |
 
 Subscribe using:
+
 ```json
 {
-  "method": "SUBSCRIBE",
-  "params": ["ethusdc@depth"],
-  "id": 1
+	"method": "SUBSCRIBE",
+	"params": ["ethusdc@depth"],
+	"id": 1
 }
 ```
 
 Unsubscribe with:
+
 ```json
 {
-  "method": "UNSUBSCRIBE",
-  "params": ["ethusdc@depth"],
-  "id": 2
+	"method": "UNSUBSCRIBE",
+	"params": ["ethusdc@depth"],
+	"id": 2
 }
 ```
 
 List subscriptions:
+
 ```json
 { "method": "LIST_SUBSCRIPTIONS", "id": 3 }
 ```
@@ -69,6 +73,7 @@ List subscriptions:
 ### 👤 User Streams (per wallet)
 
 Connect to:
+
 ```
 ws://localhost:42080/ws/<walletAddress>
 ```
@@ -81,35 +86,35 @@ Sent when your order is created, filled, or canceled.
 
 ```json
 {
-  "e": "executionReport",
-  "E": 1747466880,
-  "s": "MWETHMUSDC",
-  "i": "157",
-  "S": "SELL",
-  "o": "MARKET",
-  "x": "TRADE",
-  "X": "FILLED",
-  "q": "1000000000000000000",
-  "z": "1000000000000000000",
-  "p": "0",
-  "L": "1900000000",
-  "T": 1747466880
+	"e": "executionReport",
+	"E": 1747466880,
+	"s": "MWETHMUSDC",
+	"i": "157",
+	"S": "SELL",
+	"o": "MARKET",
+	"x": "TRADE",
+	"X": "FILLED",
+	"q": "1000000000000000000",
+	"z": "1000000000000000000",
+	"p": "0",
+	"L": "1900000000",
+	"T": 1747466880
 }
 ```
 
-| Field | Description |
-|-------|-------------|
-| s | Symbol (e.g. MWETHMUSDC) |
-| i | Order ID |
-| S | Side (BUY/SELL) |
-| o | Order type (MARKET/LIMIT) |
-| x | Execution type (NEW, TRADE, CANCELED) |
-| X | Order status (NEW, FILLED, PARTIALLY_FILLED) |
-| q | Total order quantity |
-| z | Cumulative filled quantity |
-| p | Limit price (if applicable) |
-| L | Last executed price |
-| T | Timestamp |
+| Field | Description                                  |
+| ----- | -------------------------------------------- |
+| s     | Symbol (e.g. MWETHMUSDC)                     |
+| i     | Order ID                                     |
+| S     | Side (BUY/SELL)                              |
+| o     | Order type (MARKET/LIMIT)                    |
+| x     | Execution type (NEW, TRADE, CANCELED)        |
+| X     | Order status (NEW, FILLED, PARTIALLY_FILLED) |
+| q     | Total order quantity                         |
+| z     | Cumulative filled quantity                   |
+| p     | Limit price (if applicable)                  |
+| L     | Last executed price                          |
+| T     | Timestamp                                    |
 
 #### 💰 balanceUpdate
 
@@ -117,21 +122,22 @@ Sent when balances change (deposit, withdrawal, fill, lock/unlock).
 
 ```json
 {
-  "e": "balanceUpdate",
-  "E": 1747466880,
-  "a": "0x9a9f...",
-  "b": "2149644000",
-  "l": "0"
+	"e": "balanceUpdate",
+	"E": 1747466880,
+	"a": "0x9a9f...",
+	"b": "2149644000",
+	"l": "0"
 }
 ```
 
-| Field | Description |
-|-------|-------------|
-| a | Token address |
-| b | Available balance (stringified bigint) |
-| l | Locked balance (stringified bigint) |
+| Field | Description                            |
+| ----- | -------------------------------------- |
+| a     | Token address                          |
+| b     | Available balance (stringified bigint) |
+| l     | Locked balance (stringified bigint)    |
 
 ### 📦 Typical Workflow
+
 1. Connect to ws://localhost:42080/ws/<wallet>
 2. Place an order → receive executionReport (NEW)
 3. Order fills → receive executionReport (TRADE) and balanceUpdate
@@ -149,6 +155,7 @@ pnpm ts-node websocket-client.ts
 ### 📥 REST API Endpoints
 
 #### Order Book Snapshot
+
 ```bash
 curl 'http://localhost:42080/api/v3/depth?symbol=ethusdc&limit=20'
 ```
@@ -166,6 +173,7 @@ curl 'http://localhost:42080/api/kline/mocks?symbol=ethusdc&interval=1m'
 ```
 
 **Parameters:**
+
 - `symbol` (required): Trading pair (e.g., 'ethusdc')
 - `interval` (optional): Time interval - '1m', '5m', '30m', '1h', '1d' (default: '1m')
 - `startTime` (optional): Start time in milliseconds (default: 0)
@@ -173,6 +181,7 @@ curl 'http://localhost:42080/api/kline/mocks?symbol=ethusdc&interval=1m'
 - `limit` (optional): Maximum number of records (default: 1000)
 
 The kline data follows the standard format:
+
 ```
 [
   [
@@ -193,21 +202,23 @@ The kline data follows the standard format:
 ]
 ```
 
-| What you can stream | Subscribe with | Notes | 
-| ------------------- | -------------- | ----- | 
-| Order‑book deltas   | `<symbol>@depth` or `<symbol>@depth5@100ms` | Emits every time bids or asks change. | 
-| Live trades         | `<symbol>@trade` | Tick‑by‑tick last price. | 
-| 1‑minute candlesticks | `<symbol>@kline_1m` | Any interval supported: 1m, 5m, 1h, 1d … | 
-| 24 h mini‑ticker    | `<symbol>@miniTicker` | Last price / high / low / volume widget. |  
+| What you can stream   | Subscribe with                              | Notes                                    |
+| --------------------- | ------------------------------------------- | ---------------------------------------- |
+| Order‑book deltas     | `<symbol>@depth` or `<symbol>@depth5@100ms` | Emits every time bids or asks change.    |
+| Live trades           | `<symbol>@trade`                            | Tick‑by‑tick last price.                 |
+| 1‑minute candlesticks | `<symbol>@kline_1m`                         | Any interval supported: 1m, 5m, 1h, 1d … |
+| 24 h mini‑ticker      | `<symbol>@miniTicker`                       | Last price / high / low / volume widget. |
 
 **User streams**  
-Open a second socket to `ws://localhost:42080/ws/<walletAddress>` to receive:  
-* `executionReport` – order status & fills  
-* `balanceUpdate`   – deposits, withdrawals, fee distributions  
+Open a second socket to `ws://localhost:42080/ws/<walletAddress>` to receive:
 
-No REST auth is required; simply connect to the address‑specific socket.  
+- `executionReport` – order status & fills
+- `balanceUpdate` – deposits, withdrawals, fee distributions
 
-**Example with the bundled CLI**  
+No REST auth is required; simply connect to the address‑specific socket.
+
+**Example with the bundled CLI**
+
 ```text
 pnpm ts-node websocket-client.ts
 > subscribe ethusdc@depth
@@ -215,7 +226,7 @@ pnpm ts-node websocket-client.ts
 > list
 ```
 
-### 📊 Data Models  
+### 📊 Data Models
 
 - **🏊‍♂️ Pools**: Trading pair configs
 - **📝 Orders**: Live & historical orders
@@ -227,9 +238,10 @@ pnpm ts-node websocket-client.ts
   📈 1m  |  📊 5m  |  📉 30m  |  📈 1h  |  📊 1d
   ```
 
-## 🗄️ Database Schema  
+## 🗄️ Database Schema
 
 ### 🏊‍♂️ Pools
+
 ```typescript
 {
   id: hex,                  // 🏷️ Pool address
@@ -244,6 +256,7 @@ pnpm ts-node websocket-client.ts
 ```
 
 ### 📝 Orders
+
 ```typescript
 {
   id: string,              // 🆔 Unique ID
@@ -261,33 +274,38 @@ pnpm ts-node websocket-client.ts
 }
 ```
 
-## 🚀 Quick Start  
+## 🚀 Quick Start
 
 1. 📦 Install dependencies:
+
 ```bash
 pnpm install
 ```
 
 2. ⚙️ Setup environment:
+
 ```bash
 cp .env.example .env
 ```
 
 3. 🏃‍♂️ Launch indexer:
+
 ```bash
 pnpm dev
 ```
 
 4. 🛰 Start the WebSocket CLI (optional):
+
 ```bash
 pnpm ts-node websocket-client.ts
 ```
 
-## 👨‍💻 Development  
+## 👨‍💻 Development
 
 Key files for customization:
+
 - 🏊‍♂️ `src/poolManager.ts`
 - 📚 `src/index.ts` (OrderBook events)
-- 💰 `src/balanceManager.ts`  
+- 💰 `src/balanceManager.ts`
 
 Schema modifications: 🔧 `ponder.schema.ts`

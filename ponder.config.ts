@@ -1,9 +1,9 @@
-import {createConfig} from "ponder";
-import {getBaseConfig} from "./base-ponder.config";
+import { createConfig } from "ponder";
+import { getBaseConfig } from "./base-ponder.config";
 
 export default createConfig({
-  database: {
-    kind: "pglite",
-  },
-  ...getBaseConfig(),
+	database: {
+		kind: "pglite",
+	},
+	...getBaseConfig(),
 });
