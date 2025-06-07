@@ -17,9 +17,14 @@
     "noEmit": true,
     "lib": ["ES2022"],
     "target": "ES2022",
-
+    "baseUrl": ".",
     // Skip type checking for node modules
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "paths": {
+      "@/*": [
+        "src/*"
+      ]
+    }
   },
   "include": ["./**/*.ts"],
   "exclude": ["node_modules"]
