@@ -1,4 +1,4 @@
-import {createBucketId} from "./hash";
+import { createBucketId } from "./hash";
 
 export function updateCandlestickBucket(
     bucketTable: any,
@@ -18,7 +18,7 @@ export function updateCandlestickBucket(
 
     const bucketId = createBucketId(event.log.address!, openTime, chainId);
 
-    const priceDecimal = Number(price) / (10 ** quoteDecimals);
+    const priceDecimal = Number(price);
 
     const baseVolume = Number(quantity) / (10 ** baseDecimals);
     const quoteVolume = Number(Number(quantity) * Number(price)) / (10 ** (baseDecimals + quoteDecimals));
