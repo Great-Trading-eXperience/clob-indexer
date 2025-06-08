@@ -4,10 +4,15 @@ import { createServer, IncomingMessage, ServerResponse } from "http";
 import { URL } from "url";
 import type { WebSocket as WSWebSocket } from "ws";
 import { registerBroadcastFns } from "./broadcaster";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const { WebSocketServer } = require("ws");
 
 const ENABLED_WEBSOCKET_LOG = process.env.ENABLE_WEBSOCKET_LOG === 'true';
+
+console.log("ENABLED_WEBSOCKET_LOG", ENABLED_WEBSOCKET_LOG);
 
 interface BinanceControl {
     method?: "SUBSCRIBE" | "UNSUBSCRIBE" | "LIST_SUBSCRIPTIONS" | "PING" | "PONG";
@@ -37,7 +42,7 @@ const allowCtrl = (s: ClientState) => {
     s.lastCtrl = n;
     return true;
 };
-const randomListenKey = () => randomBytes(16).toString("hex");
+
 setInterval(() => {
     const n = Date.now();
     for (const [k, r] of listenKeys)

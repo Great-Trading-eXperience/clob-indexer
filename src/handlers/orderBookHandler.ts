@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import { eq } from "ponder";
+import { eq, and, gte, desc } from "ponder";
 import {
     dailyBuckets,
     fiveMinuteBuckets,
@@ -19,7 +19,7 @@ import { getDepth } from "../utils/getDepth";
 import { getPoolTokenDecimals } from "../utils/getPoolTokenDecimals";
 import { getPoolTradingPair } from "../utils/getPoolTradingPair";
 import { createOrderHistoryId, createOrderId, createPoolId, createTradeId } from "../utils/hash";
-import { pushDepth, pushMiniTicker, pushTrade } from "../websocket/broadcaster";
+import { pushDepth, pushKline, pushMiniTicker, pushTrade } from "../websocket/broadcaster";
 import { pushExecutionReport } from "../utils/pushExecutionReport";
 
 dotenv.config();
@@ -232,6 +232,15 @@ export async function handleOrderMatched({ event, context }: any) {
         console.log(`Using default decimals due to error: ${error}`);
     }
 
+    // Define interval mappings for kline websocket channels
+    const intervalMap = {
+        [TIME_INTERVALS.minute]: '1m',
+        [TIME_INTERVALS.fiveMinutes]: '5m',
+        [TIME_INTERVALS.thirtyMinutes]: '30m',
+        [TIME_INTERVALS.hour]: '1h',
+        [TIME_INTERVALS.day]: '1d'
+    };
+    
     for (const [table, seconds] of [
         [minuteBuckets, TIME_INTERVALS.minute],
         [fiveMinuteBuckets, TIME_INTERVALS.fiveMinutes],
@@ -255,7 +264,15 @@ export async function handleOrderMatched({ event, context }: any) {
     }
 
     if (ENABLED_WEBSOCKET) {
-        pushTrade(symbol.toLowerCase(), event.transaction.hash, event.args.executionPrice.toString(), event.args.executedQuantity.toString(), !!event.args.side, timestamp * 1000);
+        const symbolLower = symbol.toLowerCase();
+        const txHash = event.transaction.hash;
+        const price = event.args.executionPrice.toString();
+        const quantity = event.args.executedQuantity.toString();
+        const isBuyerMaker = !!event.args.side;
+        const tradeTime = timestamp * 1000;
+        
+        // Push trade to websocket
+        pushTrade(symbolLower, txHash, price, quantity, isBuyerMaker, tradeTime);
 
         const buyRow = (await context.db.sql.select().from(orders).where(eq(orders.orderId, BigInt(event.args.buyOrderId!))).execute())[0];
         const sellRow = (await context.db.sql.select().from(orders).where(eq(orders.orderId, BigInt(event.args.sellOrderId!))).execute())[0];
@@ -265,14 +282,80 @@ export async function handleOrderMatched({ event, context }: any) {
 
         const latestDepth = await getDepth(event.log.address!, context, chainId);
         pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
+        
+        const timeIntervals = [
+            { table: minuteBuckets, interval: '1m', seconds: TIME_INTERVALS.minute },
+            { table: fiveMinuteBuckets, interval: '5m', seconds: TIME_INTERVALS.fiveMinutes },
+            { table: thirtyMinuteBuckets, interval: '30m', seconds: TIME_INTERVALS.thirtyMinutes },
+            { table: hourBuckets, interval: '1h', seconds: TIME_INTERVALS.hour }
+        ];
+        
+        const currentTimestamp = Number(event.block.timestamp);
+        
+        for (const { table, interval, seconds } of timeIntervals) {
+            const openTime = Math.floor(currentTimestamp / seconds) * seconds;
+            
+            const klineData = await context.db.sql
+                .select()
+                .from(table)
+                .where(
+                    and(
+                        eq(table.poolId, event.log.address!),
+                        eq(table.openTime, openTime)
+                    )
+                )
+                .execute();
+                
+            if (klineData.length > 0) {
+                const kline = klineData[0];
+                const klinePayload = {
+                    t: kline.openTime * 1000,
+                    T: kline.closeTime * 1000,
+                    s: symbol.toUpperCase(),
+                    i: interval,
+                    o: kline.open.toString(),
+                    c: kline.close.toString(),
+                    h: kline.high.toString(),
+                    l: kline.low.toString(),
+                    v: kline.volume.toString(),
+                    n: kline.count,
+                    x: false,
+                    q: kline.quoteVolume.toString(),
+                    V: kline.takerBuyBaseVolume.toString(),
+                    Q: kline.takerBuyQuoteVolume.toString()
+                };
+                
+                pushKline(symbol.toLowerCase(), interval, klinePayload);
+            }
+        }
 
-        // Broadcast a mini‑ticker so front‑ends get last price/volume widgets
+        const now = Math.floor(Date.now() / 1000);
+        const oneDayAgo = now - 86400;
+        
+        const dailyStats = await context.db.sql
+            .select()
+            .from(dailyBuckets)
+            .where(
+                and(
+                    eq(dailyBuckets.poolId, event.log.address!),
+                    gte(dailyBuckets.openTime, oneDayAgo)
+                )
+            )
+            .orderBy(desc(dailyBuckets.openTime))
+            .limit(1)
+            .execute();
+        
+        const closePrice = event.args.executionPrice.toString();
+        const highPrice = dailyStats.length > 0 ? dailyStats[0].high.toString() : closePrice;
+        const lowPrice = dailyStats.length > 0 ? dailyStats[0].low.toString() : closePrice;
+        const volume = dailyStats.length > 0 ? dailyStats[0].quoteVolume.toString() : (BigInt(event.args.executedQuantity) * BigInt(event.args.executionPrice)).toString();
+        
         pushMiniTicker(
             symbol.toLowerCase(),
-            event.args.executionPrice.toString(), // close / last price
-            event.args.executionPrice.toString(), // high (stub)
-            event.args.executionPrice.toString(), // low  (stub)
-            event.args.executedQuantity.toString() // volume (stub)
+            closePrice,
+            highPrice,
+            lowPrice,
+            volume
         );
     }
 }
