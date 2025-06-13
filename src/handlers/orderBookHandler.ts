@@ -1,16 +1,16 @@
 import dotenv from "dotenv";
-import { eq, and, gte, desc } from "ponder";
+import { and, desc, eq, gte } from "ponder";
 import {
     dailyBuckets,
     fiveMinuteBuckets,
     hourBuckets,
+    minuteBuckets,
     orderBookTrades,
     orderHistory,
     orders,
     pools,
     thirtyMinuteBuckets,
-    trades,
-    minuteBuckets
+    trades
 } from "ponder:schema";
 import { updateCandlestickBucket } from "../utils/candlestick";
 import { ORDER_STATUS, TIME_INTERVALS } from "../utils/constants";
@@ -19,12 +19,11 @@ import { getDepth } from "../utils/getDepth";
 import { getPoolTokenDecimals } from "../utils/getPoolTokenDecimals";
 import { getPoolTradingPair } from "../utils/getPoolTradingPair";
 import { createOrderHistoryId, createOrderId, createPoolId, createTradeId } from "../utils/hash";
-import { pushDepth, pushKline, pushMiniTicker, pushTrade } from "../websocket/broadcaster";
 import { pushExecutionReport } from "../utils/pushExecutionReport";
+import { pushDepth, pushKline, pushMiniTicker, pushTrade } from "../websocket/broadcaster";
+import { executeIfInSync } from "../utils/syncState";
 
 dotenv.config();
-
-const ENABLED_WEBSOCKET = process.env.ENABLE_WEBSOCKET === 'true';
 
 export async function handleOrderPlaced({ event, context }: any) {
     try {
@@ -55,13 +54,13 @@ export async function handleOrderPlaced({ event, context }: any) {
             })
             .onConflictDoNothing();
 
-    const orderHistoryId = createOrderHistoryId(
-        event.transaction.hash.toString(),
-        BigInt(0),
-        chainId,
-        event.log.address!,
-        event.args.orderId.toString()
-    );
+        const orderHistoryId = createOrderHistoryId(
+            event.transaction.hash.toString(),
+            BigInt(0),
+            chainId,
+            event.log.address!,
+            event.args.orderId.toString()
+        );
 
         await context.db
             .insert(orderHistory)
@@ -89,13 +88,14 @@ export async function handleOrderPlaced({ event, context }: any) {
             timestamp
         );
 
-        if (ENABLED_WEBSOCKET) {
+        // Only emit WebSocket events if we're in sync
+        await executeIfInSync(context, event.block.number, timestamp, async () => {
             const order = (await context.db.sql.select().from(orders).where(eq(orders.id, id)).execute())[0];
             pushExecutionReport(symbol.toLowerCase(), order.user, order, "NEW", "NEW", BigInt(0), BigInt(0), timestamp * 1000);
 
             const latestDepth = await getDepth(event.log.address!, context, chainId);
             pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
-        }
+        });
     } catch (e) {
         console.log("Error in OrderPlaced", e);
     }
@@ -232,15 +232,7 @@ export async function handleOrderMatched({ event, context }: any) {
         console.log(`Using default decimals due to error: ${error}`);
     }
 
-    // Define interval mappings for kline websocket channels
-    const intervalMap = {
-        [TIME_INTERVALS.minute]: '1m',
-        [TIME_INTERVALS.fiveMinutes]: '5m',
-        [TIME_INTERVALS.thirtyMinutes]: '30m',
-        [TIME_INTERVALS.hour]: '1h',
-        [TIME_INTERVALS.day]: '1d'
-    };
-    
+    // Update candlestick buckets (this happens regardless of sync state)
     for (const [table, seconds] of [
         [minuteBuckets, TIME_INTERVALS.minute],
         [fiveMinuteBuckets, TIME_INTERVALS.fiveMinutes],
@@ -263,7 +255,8 @@ export async function handleOrderMatched({ event, context }: any) {
         );
     }
 
-    if (ENABLED_WEBSOCKET) {
+    // Only emit WebSocket events if we're in sync
+    await executeIfInSync(context, event.block.number, timestamp, async () => {
         const symbolLower = symbol.toLowerCase();
         const txHash = event.transaction.hash;
         const price = event.args.executionPrice.toString();
@@ -357,7 +350,7 @@ export async function handleOrderMatched({ event, context }: any) {
             lowPrice,
             volume
         );
-    }
+    });
 }
 
 export async function handleOrderCancelled({ event, context }: any) {
@@ -381,7 +374,8 @@ export async function handleOrderCancelled({ event, context }: any) {
         timestamp
     );
 
-    if (ENABLED_WEBSOCKET) {
+    // Only emit WebSocket events if we're in sync
+    await executeIfInSync(context, event.block.number, timestamp, async () => {
         const row = (await context.db.sql.select().from(orders).where(eq(orders.id, id)).execute())[0];
 
         if (!row) return;
@@ -389,7 +383,7 @@ export async function handleOrderCancelled({ event, context }: any) {
         pushExecutionReport(symbol.toLowerCase(), row.user, row, "CANCELED", "CANCELED", BigInt(0), BigInt(0), timestamp);
         const latestDepth = await getDepth(event.log.address!, context, chainId);
         pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
-    }
+    });
 }
 
 export async function handleUpdateOrder({ event, context }: any) {
@@ -432,7 +426,8 @@ export async function handleUpdateOrder({ event, context }: any) {
         timestamp
     );
 
-    if (ENABLED_WEBSOCKET) {
+    // Only emit WebSocket events if we're in sync
+    await executeIfInSync(context, event.block.number, timestamp, async () => {
         const row = (await context.db.sql.select().from(orders).where(eq(orders.id, id)).execute())[0];
 
         if (!row) return;
@@ -440,5 +435,5 @@ export async function handleUpdateOrder({ event, context }: any) {
         pushExecutionReport(symbol.toLowerCase(), row.user, row, "TRADE", row.status, BigInt(event.args.filled), row.price, timestamp * 1000);
         const latestDepth = await getDepth(event.log.address!, context, chainId);
         pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
-    }
+    });
 }
