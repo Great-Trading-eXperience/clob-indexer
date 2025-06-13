@@ -8,6 +8,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const ENABLED_WEBSOCKET = process.env.ENABLE_WEBSOCKET === "true";
+const START_WEBSOCKET_BLOCK = process.env.START_WEBSOCKET_BLOCK ? parseInt(process.env.START_WEBSOCKET_BLOCK) : 0;
 
 async function fetchTokenData(client: any, address: string) {
 	try {
@@ -92,7 +93,7 @@ export async function handlePoolCreated({ event, context }: any) {
 		})
 		.onConflictDoNothing();
 
-	if (ENABLED_WEBSOCKET) {
+	if (ENABLED_WEBSOCKET && event.block.number > START_WEBSOCKET_BLOCK) {
 		const symbol = coin.replace("/", "").toLowerCase();
 		pushMiniTicker(symbol, "0", "0", "0", "0");
 	}
