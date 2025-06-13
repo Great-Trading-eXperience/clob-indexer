@@ -14,7 +14,7 @@ import schema, {
 	pools,
 	thirtyMinuteBuckets,
 } from "ponder:schema";
-// import { bootstrapGateway } from "../websocket/websocket-server";
+import { bootstrapGateway } from "@/websocket/websocket-server";
 
 const app = new Hono();
 
@@ -752,6 +752,6 @@ function getIntervalInMs(interval: string): number {
 	}
 }
 
-// bootstrapGateway(app);
+bootstrapGateway(app);
 
 export default app;
