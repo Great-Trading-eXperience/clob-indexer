@@ -5,6 +5,7 @@ import {BalanceManagerABI} from "./abis/BalanceManager";
 import {GTXRouterABI} from "./abis/GTXRouter";
 import {OrderBookABI} from "./abis/OrderBook";
 import {PoolManagerABI} from "./abis/PoolManager";
+import {FaucetABI} from "./abis/FaucetABI";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -51,6 +52,15 @@ const contracts: any = {
         network: "network",
         address: getAddress(
             (process.env.GTXROUTER_CONTRACT_ADDRESS as `0x${string}`) ||
+            default_address
+        ),
+        startBlock: Number(process.env.START_BLOCK) || undefined,
+    },
+    Faucet: {
+        abi: FaucetABI || [],
+        network: "network",
+        address: getAddress(
+            (process.env.FAUCET_CONTRACT_ADDRESS as `0x${string}`) ||
             default_address
         ),
         startBlock: Number(process.env.START_BLOCK) || undefined,

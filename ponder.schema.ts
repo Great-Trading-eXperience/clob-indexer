@@ -315,3 +315,61 @@ export const balancesCurrenciesRelations = relations(balances, ({ one }) => ({
 		references: [currencies.address, currencies.chainId],
 	}),
 }));
+
+export const faucetRequests = onchainTable(
+	"faucet_requests",
+	t => ({
+		id: t.text().primaryKey(),
+		chainId: t.integer().notNull(),
+		requester: t.hex().notNull(),
+		receiver: t.hex().notNull(),
+		token: t.hex().notNull(),
+		amount: t.bigint(),
+		timestamp: t.integer(),
+		transactionId: t.text(),
+		blockNumber: t.text(),
+	}),
+	table => ({
+		requesterIdx: index().on(table.requester),
+		tokenIdx: index().on(table.token),
+		chainIdIdx: index().on(table.chainId),
+		timestampIdx: index().on(table.timestamp),
+	})
+);
+
+export const faucetDeposits = onchainTable(
+	"faucet_deposits",
+	t => ({
+		id: t.text().primaryKey(),
+		chainId: t.integer().notNull(),
+		depositor: t.hex().notNull(),
+		token: t.hex().notNull(),
+		amount: t.bigint(),
+		timestamp: t.integer(),
+		transactionId: t.text(),
+		blockNumber: t.text(),
+	}),
+	table => ({
+		depositorIdx: index().on(table.depositor),
+		tokenIdx: index().on(table.token),
+		chainIdIdx: index().on(table.chainId),
+		timestampIdx: index().on(table.timestamp),
+	})
+);
+
+export const faucetTokens = onchainTable(
+	"faucet_tokens",
+	t => ({
+		id: t.text().primaryKey(),
+		chainId: t.integer().notNull(),
+		token: t.hex().notNull(),
+		timestamp: t.integer(),
+		transactionId: t.text(),
+		blockNumber: t.text(),
+	}),
+	table => ({
+		tokenIdx: index().on(table.token),
+		chainIdIdx: index().on(table.chainId),
+		timestampIdx: index().on(table.timestamp),
+	})
+);

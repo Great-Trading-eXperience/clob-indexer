@@ -1,9 +1,9 @@
-import {currencies, pools} from "ponder:schema";
-import {ERC20ABI} from "../../abis/ERC20";
-import {Address, getAddress, toHex} from "viem";
-import {createCurrencyId, createPoolId} from "../utils/hash";
-import { pushMiniTicker } from "../websocket/broadcaster";
 import dotenv from "dotenv";
+import { currencies, pools } from "ponder:schema";
+import { Address, getAddress } from "viem";
+import { ERC20ABI } from "../../abis/ERC20";
+import { createCurrencyId, createPoolId } from "../utils/hash";
+import { pushMiniTicker } from "../websocket/broadcaster";
 
 dotenv.config();
 

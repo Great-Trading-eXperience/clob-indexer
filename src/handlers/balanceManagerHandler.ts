@@ -1,13 +1,12 @@
-import {balances} from "ponder:schema";
-import {createBalanceId} from "../utils/hash";
-import {getAddress, toHex} from "viem";
-import { pushBalanceUpdate } from "../websocket/broadcaster";
-import { eq } from "ponder";
 import dotenv from "dotenv";
+import { eq } from "ponder";
+import { balances } from "ponder:schema";
+import { getAddress, toHex } from "viem";
+import { createBalanceId } from "../utils/hash";
+import { executeIfInSync } from "../utils/syncState";
+import { pushBalanceUpdate } from "../websocket/broadcaster";
 
 dotenv.config();
-
-const ENABLED_WEBSOCKET = process.env.ENABLE_WEBSOCKET === 'true';
 
 function fromId(id: number): string {
     return `0x${id.toString(16).padStart(40, "0")}`;
@@ -19,6 +18,7 @@ export async function handleDeposit({event, context}: any) {
     const user = event.args.user;
     const currency = getAddress(fromId(event.args.id));
     const balanceId = createBalanceId(chainId, currency, user);
+    const timestamp = Number(event.block.timestamp);
 
     await db
         .insert(balances)
@@ -34,18 +34,19 @@ export async function handleDeposit({event, context}: any) {
             amount: row.amount + BigInt(event.args.amount),
         }));
 
-    if (ENABLED_WEBSOCKET) {
+    // Only emit WebSocket events if we're in sync
+    await executeIfInSync(context, event.block.number, timestamp, async () => {
         const balRow = await context.db.sql.select().from(balances).where(eq(balances.id, balanceId)).execute();
         if (balRow[0]) {
             pushBalanceUpdate(balRow[0].user, {
                 e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
+                E: timestamp * 1000,
                 a: balRow[0].currency,
                 b: balRow[0].amount.toString(),
                 l: balRow[0].lockedAmount.toString()
             });
         }
-    }
+    });
 }
 
 export async function handleWithdrawal({event, context}: any) {
@@ -53,6 +54,7 @@ export async function handleWithdrawal({event, context}: any) {
     const user = event.args.user;
     const currency = getAddress(fromId(event.args.id));
     const balanceId = createBalanceId(chainId, currency, user);
+    const timestamp = Number(event.block.timestamp);
 
     await context.db
         .update(balances, {id: balanceId})
@@ -60,24 +62,26 @@ export async function handleWithdrawal({event, context}: any) {
             amount: row.amount - BigInt(event.args.amount),
         }));
 
-    if (ENABLED_WEBSOCKET) {
+    // Only emit WebSocket events if we're in sync
+    await executeIfInSync(context, event.block.number, timestamp, async () => {
         const balRow = await context.db.sql.select().from(balances).where(eq(balances.id, balanceId)).execute();
         if (balRow[0]) {
             pushBalanceUpdate(balRow[0].user, {
                 e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
+                E: timestamp * 1000,
                 a: balRow[0].currency,
                 b: balRow[0].amount.toString(),
                 l: balRow[0].lockedAmount.toString()
             });
         }
-    }
+    });
 }
 
 export async function handleTransferFrom({event, context}: any) {
     const chainId = context.network.chainId;
     const netAmount = BigInt(event.args.amount) - BigInt(event.args.feeAmount);
     const currency = getAddress(fromId(event.args.id));
+    const timestamp = Number(event.block.timestamp);
 
     // Update or insert sender balance
     const senderId = createBalanceId(chainId, currency, event.args.sender);
@@ -89,22 +93,8 @@ export async function handleTransferFrom({event, context}: any) {
             chainId: chainId,
         }));
 
-    if (ENABLED_WEBSOCKET) {
-        const balRowSender = await context.db.sql.select().from(balances).where(eq(balances.id, senderId)).execute();
-        if (balRowSender[0]) {
-            pushBalanceUpdate(balRowSender[0].user, {
-                e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
-                a: balRowSender[0].currency,
-                b: balRowSender[0].amount.toString(),
-                l: balRowSender[0].lockedAmount.toString()
-            });
-        }
-    }
-
     // Update or insert receiver balance
     const receiverId = createBalanceId(chainId, currency, event.args.receiver);
-
     await context.db
         .insert(balances)
         .values({
@@ -119,20 +109,7 @@ export async function handleTransferFrom({event, context}: any) {
             amount: row.amount + netAmount,
         }));
 
-    if (ENABLED_WEBSOCKET) {
-        const balRowReceiver = await context.db.sql.select().from(balances).where(eq(balances.id, receiverId)).execute();
-        if (balRowReceiver[0]) {
-            pushBalanceUpdate(balRowReceiver[0].user, {
-                e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
-                a: balRowReceiver[0].currency,
-                b: balRowReceiver[0].amount.toString(),
-                l: balRowReceiver[0].lockedAmount.toString()
-            });
-        }
-    }
-
-    // // Update or insert operator balance
+    // Update or insert operator balance
     const operatorId = createBalanceId(chainId, currency, event.args.operator);
     await context.db
         .insert(balances)
@@ -148,24 +125,51 @@ export async function handleTransferFrom({event, context}: any) {
             amount: row.amount + BigInt(event.args.feeAmount),
         }));
 
-    if (ENABLED_WEBSOCKET) {
+    // Only emit WebSocket events if we're in sync
+    await executeIfInSync(context, event.block.number, timestamp, async () => {
+        // Sender balance update
+        const balRowSender = await context.db.sql.select().from(balances).where(eq(balances.id, senderId)).execute();
+        if (balRowSender[0]) {
+            pushBalanceUpdate(balRowSender[0].user, {
+                e: "balanceUpdate",
+                E: timestamp * 1000,
+                a: balRowSender[0].currency,
+                b: balRowSender[0].amount.toString(),
+                l: balRowSender[0].lockedAmount.toString()
+            });
+        }
+
+        // Receiver balance update
+        const balRowReceiver = await context.db.sql.select().from(balances).where(eq(balances.id, receiverId)).execute();
+        if (balRowReceiver[0]) {
+            pushBalanceUpdate(balRowReceiver[0].user, {
+                e: "balanceUpdate",
+                E: timestamp * 1000,
+                a: balRowReceiver[0].currency,
+                b: balRowReceiver[0].amount.toString(),
+                l: balRowReceiver[0].lockedAmount.toString()
+            });
+        }
+
+        // Operator balance update
         const balRowOperator = await context.db.sql.select().from(balances).where(eq(balances.id, operatorId)).execute();
         if (balRowOperator[0]) {
             pushBalanceUpdate(balRowOperator[0].user, {
                 e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
+                E: timestamp * 1000,
                 a: balRowOperator[0].currency,
                 b: balRowOperator[0].amount.toString(),
                 l: balRowOperator[0].lockedAmount.toString()
             });
         }
-    }
+    });
 }
 
 export async function handleTransferLockedFrom({event, context}: any) {
     const chainId = context.network.chainId;
     const netAmount = BigInt(event.args.amount) - BigInt(event.args.feeAmount);
     const currency = getAddress(fromId(event.args.id));
+    const timestamp = Number(event.block.timestamp);
 
     // Update sender locked balance
     const senderId = createBalanceId(chainId, currency, event.args.sender);
@@ -176,19 +180,6 @@ export async function handleTransferLockedFrom({event, context}: any) {
             user: event.args.sender,
             chainId: chainId,
         }));
-
-    if (ENABLED_WEBSOCKET) {
-        const balRowSender = await context.db.sql.select().from(balances).where(eq(balances.id, senderId)).execute();
-        if (balRowSender[0]) {
-            pushBalanceUpdate(balRowSender[0].user, {
-                e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
-                a: balRowSender[0].currency,
-                b: balRowSender[0].amount.toString(),
-                l: balRowSender[0].lockedAmount.toString()
-            });
-        }
-    }
 
     // Update or insert receiver balance (unlocked)
     const receiverId = createBalanceId(chainId, currency, event.args.receiver);
@@ -206,19 +197,6 @@ export async function handleTransferLockedFrom({event, context}: any) {
             amount: row.amount + netAmount,
         }));
 
-    if (ENABLED_WEBSOCKET) {
-        const balRowReceiver = await context.db.sql.select().from(balances).where(eq(balances.id, receiverId)).execute();
-        if (balRowReceiver[0]) {
-            pushBalanceUpdate(balRowReceiver[0].user, {
-                e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
-                a: balRowReceiver[0].currency,
-                b: balRowReceiver[0].amount.toString(),
-                l: balRowReceiver[0].lockedAmount.toString()
-            });
-        }
-    }
-
     // Update or insert operator balance (unlocked)
     const operatorId = createBalanceId(chainId, currency, event.args.operator);
     await context.db
@@ -235,18 +213,44 @@ export async function handleTransferLockedFrom({event, context}: any) {
             amount: row.amount + BigInt(event.args.feeAmount),
         }));
 
-    if (ENABLED_WEBSOCKET) {
+    // Only emit WebSocket events if we're in sync
+    await executeIfInSync(context, event.block.number, timestamp, async () => {
+        // Sender balance update
+        const balRowSender = await context.db.sql.select().from(balances).where(eq(balances.id, senderId)).execute();
+        if (balRowSender[0]) {
+            pushBalanceUpdate(balRowSender[0].user, {
+                e: "balanceUpdate",
+                E: timestamp * 1000,
+                a: balRowSender[0].currency,
+                b: balRowSender[0].amount.toString(),
+                l: balRowSender[0].lockedAmount.toString()
+            });
+        }
+
+        // Receiver balance update
+        const balRowReceiver = await context.db.sql.select().from(balances).where(eq(balances.id, receiverId)).execute();
+        if (balRowReceiver[0]) {
+            pushBalanceUpdate(balRowReceiver[0].user, {
+                e: "balanceUpdate",
+                E: timestamp * 1000,
+                a: balRowReceiver[0].currency,
+                b: balRowReceiver[0].amount.toString(),
+                l: balRowReceiver[0].lockedAmount.toString()
+            });
+        }
+
+        // Operator balance update
         const balRowOperator = await context.db.sql.select().from(balances).where(eq(balances.id, operatorId)).execute();
         if (balRowOperator[0]) {
             pushBalanceUpdate(balRowOperator[0].user, {
                 e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
+                E: timestamp * 1000,
                 a: balRowOperator[0].currency,
                 b: balRowOperator[0].amount.toString(),
                 l: balRowOperator[0].lockedAmount.toString()
             });
         }
-    }
+    });
 }
 
 export async function handleLock({event, context}: any) {
@@ -254,6 +258,7 @@ export async function handleLock({event, context}: any) {
     const user = event.args.user;
     const currency = getAddress(fromId(event.args.id));
     const balanceId = createBalanceId(chainId, currency, user);
+    const timestamp = Number(event.block.timestamp);
 
     await context.db
         .update(balances, {id: balanceId})
@@ -262,18 +267,19 @@ export async function handleLock({event, context}: any) {
             lockedAmount: row.lockedAmount + BigInt(event.args.amount),
         }));
 
-    if (ENABLED_WEBSOCKET) {
+    // Only emit WebSocket events if we're in sync
+    await executeIfInSync(context, event.block.number, timestamp, async () => {
         const balRow = await context.db.sql.select().from(balances).where(eq(balances.id, balanceId)).execute();
         if (balRow[0]) {
             pushBalanceUpdate(balRow[0].user, {
                 e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
+                E: timestamp * 1000,
                 a: balRow[0].currency,
                 b: balRow[0].amount.toString(),
                 l: balRow[0].lockedAmount.toString()
             });
         }
-    }
+    });
 }
 
 export async function handleUnlock({event, context}: any) {
@@ -281,6 +287,7 @@ export async function handleUnlock({event, context}: any) {
     const user = event.args.user;
     const currency = getAddress(fromId(event.args.id));
     const balanceId = createBalanceId(chainId, currency, user);
+    const timestamp = Number(event.block.timestamp);
 
     await context.db
         .update(balances, {id: balanceId})
@@ -289,16 +296,17 @@ export async function handleUnlock({event, context}: any) {
             amount: row.amount + BigInt(event.args.amount),
         }));
 
-    if (ENABLED_WEBSOCKET) {
+    // Only emit WebSocket events if we're in sync
+    await executeIfInSync(context, event.block.number, timestamp, async () => {
         const balRow = await context.db.sql.select().from(balances).where(eq(balances.id, balanceId)).execute();
         if (balRow[0]) {
             pushBalanceUpdate(balRow[0].user, {
                 e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
+                E: timestamp * 1000,
                 a: balRow[0].currency,
                 b: balRow[0].amount.toString(),
                 l: balRow[0].lockedAmount.toString()
             });
         }
-    }
+    });
 }
