@@ -12,6 +12,7 @@ import {
     trades
 } from "ponder:schema";
 import { and, desc, eq, gte } from "ponder";
+import { orders, pools } from "ponder:schema";
 import {
 	createDepthData,
 	createOrderData,
@@ -36,8 +37,13 @@ import {
 	upsertOrderHistory,
 } from "@/utils";
 import { OrderMatchedEventArgs, OrderPlacedEventArgs } from "@/types";
+import { pushExecutionReport } from "@/utils/pushExecutionReport";
+import { pushDepth, pushMiniTicker, pushTrade } from "@/websocket/broadcaster";
 
 dotenv.config();
+
+const ENABLED_WEBSOCKET = process.env.ENABLE_WEBSOCKET === "true";
+const START_WEBSOCKET_BLOCK = process.env.START_WEBSOCKET_BLOCK ? parseInt(process.env.START_WEBSOCKET_BLOCK) : 0;
 
 export async function handleOrderPlaced({ event, context }: any) {
 	const args = event.args as OrderPlacedEventArgs;
@@ -273,4 +279,47 @@ export async function handleUpdateOrder({ event, context }: any) {
         const latestDepth = await getDepth(event.log.address!, context, chainId);
         pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
     });
+}
+
+async function getPoolTradingPair(context: any, poolAddress: string, chainId: number): Promise<string> {
+	const poolId = createPoolId(chainId, poolAddress);
+	const pool = await context.db.find(pools, { id: poolId });
+
+	if (!pool || !pool.symbol) {
+		throw new Error(`Pool not found or missing symbol for address ${poolAddress} on chain ${chainId}`);
+	}
+
+	return pool.symbol;
+}
+
+export async function getDepth(pool: `0x${string}`, context: any, chainId: number) {
+	try {
+		const bids = await context.db.findMany(orders, {
+			where: {
+				poolId: pool,
+				side: "Buy",
+				status: { in: ["OPEN", "PARTIALLY_FILLED"] },
+			},
+			orderBy: [{ price: "desc" }],
+			limit: 50,
+		});
+
+		const asks = await context.db.findMany(orders, {
+			where: {
+				poolId: pool,
+				side: "Sell",
+				status: { in: ["OPEN", "PARTIALLY_FILLED"] },
+			},
+			orderBy: [{ price: "asc" }],
+			limit: 50,
+		});
+
+		return {
+			bids: bids.map((o: any) => [o.price.toString(), (o.quantity - o.filled).toString()]),
+			asks: asks.map((o: any) => [o.price.toString(), (o.quantity - o.filled).toString()]),
+		};
+	} catch (error) {
+		console.error("Error getting depth data:", error);
+		return { bids: [], asks: [] };
+	}
 }
