@@ -1,3 +1,9 @@
+import {currencies, pools} from "ponder:schema";
+import {ERC20ABI} from "../../abis/ERC20";
+import {Address, getAddress, toHex} from "viem";
+import {createCurrencyId, createPoolId} from "../utils/hash";
+import { pushMiniTicker } from "../websocket/broadcaster";
+import { createPoolCacheKey, setCachedData } from "../utils/redis";
 import dotenv from "dotenv";
 import { currencies, pools } from "ponder:schema";
 import { Address, getAddress } from "viem";
@@ -74,23 +80,32 @@ export async function handlePoolCreated({event, context}: any) {
 
     const poolId = createPoolId(chainId, orderBook);
 
+    const poolData = {
+        id: poolId,
+        chainId,
+        coin,
+        orderBook,
+        baseCurrency,
+        quoteCurrency,
+        baseDecimals: baseData.decimals,
+        quoteDecimals: quoteData.decimals,
+        volume: BigInt(0),
+        volumeInQuote: BigInt(0),
+        price: BigInt(0),
+        timestamp: Number(event.block.timestamp),
+    };
+
     await db
         .insert(pools)
-        .values({
-            id: poolId,
-            chainId,
-            coin,
-            orderBook,
-            baseCurrency,
-            quoteCurrency,
-            baseDecimals: baseData.decimals,
-            quoteDecimals: quoteData.decimals,
-            volume: BigInt(0),
-            volumeInQuote: BigInt(0),
-            price: BigInt(0),
-            timestamp: Number(event.block.timestamp),
-        })
+        .values(poolData)
         .onConflictDoNothing();
+
+    try {
+        const cacheKey = createPoolCacheKey(orderBook, chainId);
+        await setCachedData(cacheKey, poolData);
+    } catch (error) {
+        console.error('Failed to cache pool data:', error);
+    }
 
     if (ENABLED_WEBSOCKET) {
         const symbol = coin.replace('/', '').toLowerCase();

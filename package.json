@@ -10,6 +10,10 @@
     "codegen": "ponder codegen",
     "lint": "eslint .",
     "typecheck": "tsc",
+    "metrics": "node --import ./scripts/ts-register.js scripts/check-metrics.ts",
+    "metrics:start": "node --import ./scripts/ts-register.js scripts/start-monitor.ts",
+    "metrics:watch": "node --import ./scripts/ts-register.js scripts/watch-metrics.ts",
+    "metrics:dashboard": "node --import ./scripts/ts-register.js scripts/metrics-dashboard.ts"
     "ws-client": "tsx websocket-client/websocket-client.ts",
     "stress-test": "tsx websocket-client/stress-test.ts"
   },
@@ -17,12 +21,14 @@
     "dotenv": "^16.5.0",
     "hono": "^4.7.8",
     "ponder": "^0.9.14",
+    "redis": "^5.5.6",
     "viem": "^2.29.0"
   },
   "devDependencies": {
     "@types/node": "^20.17.41",
     "eslint": "^8.57.1",
     "eslint-config-ponder": "^0.9.28",
+    "ts-node": "^10.9.2",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"
   },

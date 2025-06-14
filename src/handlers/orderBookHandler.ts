@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import { and, desc, eq, gte } from "ponder";
+import { eq, and, gte, desc, or } from "ponder";
 import {
     dailyBuckets,
     fiveMinuteBuckets,
@@ -88,9 +88,8 @@ export async function handleOrderPlaced({ event, context }: any) {
             timestamp
         );
 
-        // Only emit WebSocket events if we're in sync
-        await executeIfInSync(context, event.block.number, timestamp, async () => {
-            const order = (await context.db.sql.select().from(orders).where(eq(orders.id, id)).execute())[0];
+        if (ENABLED_WEBSOCKET) {
+            const order = await context.db.find(orders, { id: id });
             pushExecutionReport(symbol.toLowerCase(), order.user, order, "NEW", "NEW", BigInt(0), BigInt(0), timestamp * 1000);
 
             const latestDepth = await getDepth(event.log.address!, context, chainId);
@@ -148,6 +147,10 @@ export async function handleOrderMatched({ event, context }: any) {
     });
 
     const buyOrderId = createOrderId(BigInt(event.args.buyOrderId!), event.log.address!, chainId);
+    
+    const buyRow = await context.db.find(orders, {
+        id: buyOrderId
+    });
 
     await context.db
         .insert(trades)
@@ -155,7 +158,7 @@ export async function handleOrderMatched({ event, context }: any) {
             id: tradeId,
             chainId: chainId,
             transactionId: event.transaction.hash,
-            orderId: buyOrderId,
+            orderId: buyOrderId, 
             timestamp: timestamp,
             price: BigInt(event.args.executionPrice),
             quantity: BigInt(event.args.executedQuantity),
@@ -186,6 +189,10 @@ export async function handleOrderMatched({ event, context }: any) {
     );
 
     const sellOrderId = createOrderId(BigInt(event.args.sellOrderId!), event.log.address!, chainId);
+    
+    const sellRowById = await context.db.find(orders, {
+        id: sellOrderId
+    });
 
     await context.db
         .insert(trades)
@@ -232,7 +239,6 @@ export async function handleOrderMatched({ event, context }: any) {
         console.log(`Using default decimals due to error: ${error}`);
     }
 
-    // Update candlestick buckets (this happens regardless of sync state)
     for (const [table, seconds] of [
         [minuteBuckets, TIME_INTERVALS.minute],
         [fiveMinuteBuckets, TIME_INTERVALS.fiveMinutes],
@@ -263,31 +269,27 @@ export async function handleOrderMatched({ event, context }: any) {
         const quantity = event.args.executedQuantity.toString();
         const isBuyerMaker = !!event.args.side;
         const tradeTime = timestamp * 1000;
-        
-        // Push trade to websocket
+
         pushTrade(symbolLower, txHash, price, quantity, isBuyerMaker, tradeTime);
 
-        const buyRow = (await context.db.sql.select().from(orders).where(eq(orders.orderId, BigInt(event.args.buyOrderId!))).execute())[0];
-        const sellRow = (await context.db.sql.select().from(orders).where(eq(orders.orderId, BigInt(event.args.sellOrderId!))).execute())[0];
-
         if (buyRow) pushExecutionReport(symbol.toLowerCase(), buyRow.user, buyRow, "TRADE", buyRow.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), timestamp * 1000);
-        if (sellRow) pushExecutionReport(symbol.toLowerCase(), sellRow.user, sellRow, "TRADE", sellRow.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), timestamp * 1000);
+        if (sellRowById) pushExecutionReport(symbol.toLowerCase(), sellRowById.user, sellRowById, "TRADE", sellRowById.status, BigInt(event.args.executedQuantity), BigInt(event.args.executionPrice), timestamp * 1000);
 
         const latestDepth = await getDepth(event.log.address!, context, chainId);
         pushDepth(symbol.toLowerCase(), latestDepth.bids as any, latestDepth.asks as any);
-        
+
         const timeIntervals = [
             { table: minuteBuckets, interval: '1m', seconds: TIME_INTERVALS.minute },
             { table: fiveMinuteBuckets, interval: '5m', seconds: TIME_INTERVALS.fiveMinutes },
             { table: thirtyMinuteBuckets, interval: '30m', seconds: TIME_INTERVALS.thirtyMinutes },
             { table: hourBuckets, interval: '1h', seconds: TIME_INTERVALS.hour }
         ];
-        
+
         const currentTimestamp = Number(event.block.timestamp);
-        
+
         for (const { table, interval, seconds } of timeIntervals) {
             const openTime = Math.floor(currentTimestamp / seconds) * seconds;
-            
+
             const klineData = await context.db.sql
                 .select()
                 .from(table)
@@ -298,7 +300,7 @@ export async function handleOrderMatched({ event, context }: any) {
                     )
                 )
                 .execute();
-                
+
             if (klineData.length > 0) {
                 const kline = klineData[0];
                 const klinePayload = {
@@ -317,14 +319,14 @@ export async function handleOrderMatched({ event, context }: any) {
                     V: kline.takerBuyBaseVolume.toString(),
                     Q: kline.takerBuyQuoteVolume.toString()
                 };
-                
+
                 pushKline(symbol.toLowerCase(), interval, klinePayload);
             }
         }
 
         const now = Math.floor(Date.now() / 1000);
         const oneDayAgo = now - 86400;
-        
+
         const dailyStats = await context.db.sql
             .select()
             .from(dailyBuckets)
@@ -337,12 +339,12 @@ export async function handleOrderMatched({ event, context }: any) {
             .orderBy(desc(dailyBuckets.openTime))
             .limit(1)
             .execute();
-        
+
         const closePrice = event.args.executionPrice.toString();
         const highPrice = dailyStats.length > 0 ? dailyStats[0].high.toString() : closePrice;
         const lowPrice = dailyStats.length > 0 ? dailyStats[0].low.toString() : closePrice;
         const volume = dailyStats.length > 0 ? dailyStats[0].quoteVolume.toString() : (BigInt(event.args.executedQuantity) * BigInt(event.args.executionPrice)).toString();
-        
+
         pushMiniTicker(
             symbol.toLowerCase(),
             closePrice,
@@ -374,9 +376,8 @@ export async function handleOrderCancelled({ event, context }: any) {
         timestamp
     );
 
-    // Only emit WebSocket events if we're in sync
-    await executeIfInSync(context, event.block.number, timestamp, async () => {
-        const row = (await context.db.sql.select().from(orders).where(eq(orders.id, id)).execute())[0];
+    if (ENABLED_WEBSOCKET) {
+        const row = await context.db.find(orders, { id: id });
 
         if (!row) return;
 
@@ -426,9 +427,8 @@ export async function handleUpdateOrder({ event, context }: any) {
         timestamp
     );
 
-    // Only emit WebSocket events if we're in sync
-    await executeIfInSync(context, event.block.number, timestamp, async () => {
-        const row = (await context.db.sql.select().from(orders).where(eq(orders.id, id)).execute())[0];
+    if (ENABLED_WEBSOCKET) {
+        const row = await context.db.find(orders, { id: id });
 
         if (!row) return;
 
