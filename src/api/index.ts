@@ -14,6 +14,7 @@ import schema, {
   pools,
   thirtyMinuteBuckets
 } from "ponder:schema";
+import { systemMonitor } from "../utils/systemMonitor";
 import { bootstrapGateway } from "../websocket/websocket-server";
 
 const app = new Hono();
@@ -761,5 +762,12 @@ function getIntervalInMs(interval: string): number {
 }
 
 bootstrapGateway(app);
+
+const ENABLE_MONITORING = process.env.ENABLE_MONITORING === 'true';
+const MONITORING_INTERVAL = parseInt(process.env.MONITORING_INTERVAL || '5');
+
+if (ENABLE_MONITORING) {
+  systemMonitor.start(MONITORING_INTERVAL);
+}
 
 export default app;     

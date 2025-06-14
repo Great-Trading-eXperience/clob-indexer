@@ -5,5 +5,6 @@ export const isHexPoolId = (id: string): id is `0x${string}` => {
 
 export const validatePoolId = (poolId: string): `0x${string}` => {
     if (isHexPoolId(poolId)) return poolId;
-    throw new Error(`Invalid poolId format: ${poolId}`);
+    console.log(`Invalid poolId format: ${poolId}`);
+    process.exit(1);
 }

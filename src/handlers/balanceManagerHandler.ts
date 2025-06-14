@@ -1,13 +1,27 @@
-import {balances} from "ponder:schema";
-import {createBalanceId} from "../utils/hash";
-import {getAddress, toHex} from "viem";
-import { pushBalanceUpdate } from "../websocket/broadcaster";
-import { eq } from "ponder";
 import dotenv from "dotenv";
+import { balances } from "ponder:schema";
+import { getAddress } from "viem";
+import { createBalanceId } from "../utils/hash";
+import { pushBalanceUpdate } from "../websocket/broadcaster";
 
 dotenv.config();
 
 const ENABLED_WEBSOCKET = process.env.ENABLE_WEBSOCKET === 'true';
+
+async function fetchAndPushBalance(context: any, balanceId: string, timestamp: number) {
+    if (!ENABLED_WEBSOCKET) return;
+    
+    const balance = await context.db.find(balances, { id: balanceId });
+    if (balance) {
+        pushBalanceUpdate(balance.user, {
+            e: "balanceUpdate",
+            E: timestamp,
+            a: balance.currency,
+            b: balance.amount.toString(),
+            l: balance.lockedAmount.toString()
+        });
+    }
+}
 
 function fromId(id: number): string {
     return `0x${id.toString(16).padStart(40, "0")}`;
@@ -34,18 +48,7 @@ export async function handleDeposit({event, context}: any) {
             amount: row.amount + BigInt(event.args.amount),
         }));
 
-    if (ENABLED_WEBSOCKET) {
-        const balRow = await context.db.sql.select().from(balances).where(eq(balances.id, balanceId)).execute();
-        if (balRow[0]) {
-            pushBalanceUpdate(balRow[0].user, {
-                e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
-                a: balRow[0].currency,
-                b: balRow[0].amount.toString(),
-                l: balRow[0].lockedAmount.toString()
-            });
-        }
-    }
+    await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()));
 }
 
 export async function handleWithdrawal({event, context}: any) {
@@ -60,18 +63,7 @@ export async function handleWithdrawal({event, context}: any) {
             amount: row.amount - BigInt(event.args.amount),
         }));
 
-    if (ENABLED_WEBSOCKET) {
-        const balRow = await context.db.sql.select().from(balances).where(eq(balances.id, balanceId)).execute();
-        if (balRow[0]) {
-            pushBalanceUpdate(balRow[0].user, {
-                e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
-                a: balRow[0].currency,
-                b: balRow[0].amount.toString(),
-                l: balRow[0].lockedAmount.toString()
-            });
-        }
-    }
+    await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()));
 }
 
 export async function handleTransferFrom({event, context}: any) {
@@ -89,18 +81,7 @@ export async function handleTransferFrom({event, context}: any) {
             chainId: chainId,
         }));
 
-    if (ENABLED_WEBSOCKET) {
-        const balRowSender = await context.db.sql.select().from(balances).where(eq(balances.id, senderId)).execute();
-        if (balRowSender[0]) {
-            pushBalanceUpdate(balRowSender[0].user, {
-                e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
-                a: balRowSender[0].currency,
-                b: balRowSender[0].amount.toString(),
-                l: balRowSender[0].lockedAmount.toString()
-            });
-        }
-    }
+    await fetchAndPushBalance(context, senderId, Number(event.block?.timestamp ?? Date.now()));
 
     // Update or insert receiver balance
     const receiverId = createBalanceId(chainId, currency, event.args.receiver);
@@ -119,18 +100,7 @@ export async function handleTransferFrom({event, context}: any) {
             amount: row.amount + netAmount,
         }));
 
-    if (ENABLED_WEBSOCKET) {
-        const balRowReceiver = await context.db.sql.select().from(balances).where(eq(balances.id, receiverId)).execute();
-        if (balRowReceiver[0]) {
-            pushBalanceUpdate(balRowReceiver[0].user, {
-                e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
-                a: balRowReceiver[0].currency,
-                b: balRowReceiver[0].amount.toString(),
-                l: balRowReceiver[0].lockedAmount.toString()
-            });
-        }
-    }
+    await fetchAndPushBalance(context, receiverId, Number(event.block?.timestamp ?? Date.now()));
 
     // // Update or insert operator balance
     const operatorId = createBalanceId(chainId, currency, event.args.operator);
@@ -148,18 +118,7 @@ export async function handleTransferFrom({event, context}: any) {
             amount: row.amount + BigInt(event.args.feeAmount),
         }));
 
-    if (ENABLED_WEBSOCKET) {
-        const balRowOperator = await context.db.sql.select().from(balances).where(eq(balances.id, operatorId)).execute();
-        if (balRowOperator[0]) {
-            pushBalanceUpdate(balRowOperator[0].user, {
-                e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
-                a: balRowOperator[0].currency,
-                b: balRowOperator[0].amount.toString(),
-                l: balRowOperator[0].lockedAmount.toString()
-            });
-        }
-    }
+    await fetchAndPushBalance(context, operatorId, Number(event.block?.timestamp ?? Date.now()));
 }
 
 export async function handleTransferLockedFrom({event, context}: any) {
@@ -177,18 +136,7 @@ export async function handleTransferLockedFrom({event, context}: any) {
             chainId: chainId,
         }));
 
-    if (ENABLED_WEBSOCKET) {
-        const balRowSender = await context.db.sql.select().from(balances).where(eq(balances.id, senderId)).execute();
-        if (balRowSender[0]) {
-            pushBalanceUpdate(balRowSender[0].user, {
-                e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
-                a: balRowSender[0].currency,
-                b: balRowSender[0].amount.toString(),
-                l: balRowSender[0].lockedAmount.toString()
-            });
-        }
-    }
+    await fetchAndPushBalance(context, senderId, Number(event.block?.timestamp ?? Date.now()));
 
     // Update or insert receiver balance (unlocked)
     const receiverId = createBalanceId(chainId, currency, event.args.receiver);
@@ -206,18 +154,7 @@ export async function handleTransferLockedFrom({event, context}: any) {
             amount: row.amount + netAmount,
         }));
 
-    if (ENABLED_WEBSOCKET) {
-        const balRowReceiver = await context.db.sql.select().from(balances).where(eq(balances.id, receiverId)).execute();
-        if (balRowReceiver[0]) {
-            pushBalanceUpdate(balRowReceiver[0].user, {
-                e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
-                a: balRowReceiver[0].currency,
-                b: balRowReceiver[0].amount.toString(),
-                l: balRowReceiver[0].lockedAmount.toString()
-            });
-        }
-    }
+    await fetchAndPushBalance(context, receiverId, Number(event.block?.timestamp ?? Date.now()));
 
     // Update or insert operator balance (unlocked)
     const operatorId = createBalanceId(chainId, currency, event.args.operator);
@@ -235,18 +172,7 @@ export async function handleTransferLockedFrom({event, context}: any) {
             amount: row.amount + BigInt(event.args.feeAmount),
         }));
 
-    if (ENABLED_WEBSOCKET) {
-        const balRowOperator = await context.db.sql.select().from(balances).where(eq(balances.id, operatorId)).execute();
-        if (balRowOperator[0]) {
-            pushBalanceUpdate(balRowOperator[0].user, {
-                e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
-                a: balRowOperator[0].currency,
-                b: balRowOperator[0].amount.toString(),
-                l: balRowOperator[0].lockedAmount.toString()
-            });
-        }
-    }
+    await fetchAndPushBalance(context, operatorId, Number(event.block?.timestamp ?? Date.now()));
 }
 
 export async function handleLock({event, context}: any) {
@@ -262,18 +188,7 @@ export async function handleLock({event, context}: any) {
             lockedAmount: row.lockedAmount + BigInt(event.args.amount),
         }));
 
-    if (ENABLED_WEBSOCKET) {
-        const balRow = await context.db.sql.select().from(balances).where(eq(balances.id, balanceId)).execute();
-        if (balRow[0]) {
-            pushBalanceUpdate(balRow[0].user, {
-                e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
-                a: balRow[0].currency,
-                b: balRow[0].amount.toString(),
-                l: balRow[0].lockedAmount.toString()
-            });
-        }
-    }
+    await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()));
 }
 
 export async function handleUnlock({event, context}: any) {
@@ -289,16 +204,5 @@ export async function handleUnlock({event, context}: any) {
             amount: row.amount + BigInt(event.args.amount),
         }));
 
-    if (ENABLED_WEBSOCKET) {
-        const balRow = await context.db.sql.select().from(balances).where(eq(balances.id, balanceId)).execute();
-        if (balRow[0]) {
-            pushBalanceUpdate(balRow[0].user, {
-                e: "balanceUpdate",
-                E: Number(event.block?.timestamp ?? Date.now()),
-                a: balRow[0].currency,
-                b: balRow[0].amount.toString(),
-                l: balRow[0].lockedAmount.toString()
-            });
-        }
-    }
+    await fetchAndPushBalance(context, balanceId, Number(event.block?.timestamp ?? Date.now()));
 }

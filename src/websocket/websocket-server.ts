@@ -10,9 +10,9 @@ dotenv.config();
 
 const { WebSocketServer } = require("ws");
 
-const ENABLED_WEBSOCKET_LOG = process.env.ENABLE_WEBSOCKET_LOG === 'true';
+const ENABLE_WEBSOCKET_LOG = process.env.ENABLE_WEBSOCKET_LOG === 'true';
 
-console.log("ENABLED_WEBSOCKET_LOG", ENABLED_WEBSOCKET_LOG);
+console.log("ENABLE_WEBSOCKET_LOG", ENABLE_WEBSOCKET_LOG);
 
 interface BinanceControl {
     method?: "SUBSCRIBE" | "UNSUBSCRIBE" | "LIST_SUBSCRIPTIONS" | "PING" | "PONG";
@@ -127,10 +127,10 @@ export function bootstrapGateway(app: Hono) {
 
     http.on("request", (req: IncomingMessage, res: ServerResponse) => app.fetch(req as any, res));
     http.listen(parseInt(process.env.PORT || "42080"));
-    if (ENABLED_WEBSOCKET_LOG) console.log(`Gateway listening on :${process.env.PORT || 42080}`);
+    if (ENABLE_WEBSOCKET_LOG) console.log(`Gateway listening on :${process.env.PORT || 42080}`);
 
     const emit = (stream: string, data: any) => {
-        if (ENABLED_WEBSOCKET_LOG) console.log("[WS EMIT]", stream, JSON.stringify(data));
+        if (ENABLE_WEBSOCKET_LOG) console.log("[WS EMIT]", stream, JSON.stringify(data));
         const j = JSON.stringify({
             stream,
             data
@@ -140,7 +140,7 @@ export function bootstrapGateway(app: Hono) {
     };
 
     const emitUser = (userId: string, p: any) => {
-        if (ENABLED_WEBSOCKET_LOG) console.log("[WS EMIT USER]", userId, JSON.stringify(p));
+        if (ENABLE_WEBSOCKET_LOG) console.log("[WS EMIT USER]", userId, JSON.stringify(p));
         const j = JSON.stringify(p);
         for (const [ws, s] of clients)
             if (s.isUser && s.userId === userId && ws.readyState === 1) ws.send(j);
@@ -148,7 +148,7 @@ export function bootstrapGateway(app: Hono) {
 
     const fns = {
         pushTrade: (sym: string, id: number, p: string, q: string, m: boolean, ts: number) => {
-            if (ENABLED_WEBSOCKET_LOG) {
+            if (ENABLE_WEBSOCKET_LOG) {
                 console.log("pushTrade", `${sym}@trade`, id, p, q, m, ts);
             }
             emit(`${sym}@trade`, {
@@ -163,7 +163,7 @@ export function bootstrapGateway(app: Hono) {
             });
         },
         pushDepth: (sym: string, b: [string, string][], a: [string, string][]) => {
-            if (ENABLED_WEBSOCKET_LOG) {
+            if (ENABLE_WEBSOCKET_LOG) {
                 console.log("pushDepth", `${sym}@depth`, b, a);
             }
             const ob = ORDER_BOOKS[sym] || (ORDER_BOOKS[sym] = {
@@ -185,7 +185,7 @@ export function bootstrapGateway(app: Hono) {
             });
         },
         pushKline: (sym: string, int: string, k: any) => {
-            if (ENABLED_WEBSOCKET_LOG) {
+            if (ENABLE_WEBSOCKET_LOG) {
                 console.log("pushKline", `${sym}@kline_${int}`, k);
             }
             emit(`${sym}@kline_${int}`, {
@@ -196,7 +196,7 @@ export function bootstrapGateway(app: Hono) {
             });
         },
         pushMiniTicker: (sym: string, c: string, h: string, l: string, v: string) => {
-            if (ENABLED_WEBSOCKET_LOG) {
+            if (ENABLE_WEBSOCKET_LOG) {
                 console.log("pushMiniTicker", `${sym}@miniTicker`, c, h, l, v);
             }
             emit(`${sym}@miniTicker`, {
@@ -210,13 +210,13 @@ export function bootstrapGateway(app: Hono) {
             });
         },
         pushExecutionReport: (u: string, r: any) => {
-            if (ENABLED_WEBSOCKET_LOG) {
+            if (ENABLE_WEBSOCKET_LOG) {
                 console.log("pushExecutionReport", u, r);
             }
             emitUser(u, r);
         },
         pushBalanceUpdate: (u: string, b: any) => {
-            if (ENABLED_WEBSOCKET_LOG) {
+            if (ENABLE_WEBSOCKET_LOG) {
                 console.log("pushBalanceUpdate", u, b);
             }
             emitUser(u, b);
