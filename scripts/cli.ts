@@ -106,19 +106,19 @@ const menuCategories: MenuCategory[] = [
         value: 'monitor',
         description: 'Run system resource monitoring',
         command: 'pnpm monitor'
-      },
-      {
-        name: 'Monitor + Dashboard',
-        value: 'monitor:dashboard',
-        description: 'Run system monitor with dashboard concurrently',
-        command: 'pnpm monitor:dashboard'
       }
     ]
   },
   {
-    title: 'WebSocket Tools',
-    emoji: '🔌',
+    title: 'Simulation & Testing',
+    emoji: '🧪',
     items: [
+      {
+        name: 'Simulate Market Data',
+        value: 'simulate-market',
+        description: 'Run market data simulation',
+        command: 'pnpm simulate-market'
+      },
       {
         name: 'WebSocket Client',
         value: 'ws-client',
