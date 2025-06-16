@@ -114,12 +114,6 @@ const menuCategories: MenuCategory[] = [
     emoji: '🧪',
     items: [
       {
-        name: 'Simulate Market Data',
-        value: 'simulate-market',
-        description: 'Run market data simulation',
-        command: 'pnpm simulate-market'
-      },
-      {
         name: 'WebSocket Client',
         value: 'ws-client',
         description: 'Run the WebSocket client for testing connections',
@@ -130,6 +124,12 @@ const menuCategories: MenuCategory[] = [
         value: 'ws-stress-test',
         description: 'Run WebSocket stress testing with configurable parameters',
         command: 'pnpm ws-stress-test'
+      },
+      {
+        name: 'Simulate Market Data',
+        value: 'simulate-market',
+        description: 'Run real trading simulation to generate WebSocket messages',
+        command: 'pnpm simulate-market'
       }
     ]
   }
@@ -152,7 +152,7 @@ class CLI {
   private displayHeader(): void {
     console.clear();
     console.log(chalk.cyan.bold('╔══════════════════════════════════════════════╗'));
-    console.log(chalk.cyan.bold('║') + '  ' + chalk.white.bold('GTX Indexer Development CLI') + '             ' + chalk.cyan.bold('║'));
+    console.log(chalk.cyan.bold('║') + '  ' + chalk.white.bold('GTX Indexer Development CLI') + '                 ' + chalk.cyan.bold('║'));
     console.log(chalk.cyan.bold('╚══════════════════════════════════════════════╝'));
     console.log();
   }

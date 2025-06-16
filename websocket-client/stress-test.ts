@@ -91,6 +91,12 @@ class StressTestClient {
         
         try {
           const message = JSON.parse(data.toString());
+          
+          // Debug logging to understand message structure
+          if (process.env.DEBUG_WS_MESSAGES === 'true') {
+            console.log(`[Client ${this.stats.id}] Message:`, JSON.stringify(message, null, 2));
+          }
+          
           // Store the latest message with timestamp
           this.stats.latestMessages.push({
             timestamp,
@@ -463,8 +469,80 @@ class StressTestRunner {
       recentMessages.forEach(msg => {
         const timeAgo = `${((Date.now() - msg.timestamp) / 1000).toFixed(0)}s`;
         const clientId = `C${msg.clientId}`;
-        const eventType = msg.data.data?.e || msg.data.method || 'unknown';
-        const stream = msg.data.stream || 'system';
+        // Comprehensive message type parsing covering all WebSocket server message types
+        let eventType = 'unknown';
+        let stream = 'system';
+        
+        if (msg.data) {
+          // Check for subscription control messages (SUBSCRIBE, UNSUBSCRIBE, LIST_SUBSCRIPTIONS, PING, PONG)
+          if (msg.data.method) {
+            eventType = msg.data.method;
+            stream = 'system';
+          }
+          // Check for market data stream events (pushTrade, pushDepth, pushKline, pushMiniTicker)
+          else if (msg.data.data && msg.data.data.e) {
+            eventType = msg.data.data.e;
+            stream = msg.data.stream || 'market';
+          }
+          // Check for stream-based events by analyzing stream name
+          else if (msg.data.stream) {
+            stream = msg.data.stream;
+            if (msg.data.stream.includes('@trade')) {
+              eventType = 'trade';
+            } else if (msg.data.stream.includes('@depth')) {
+              eventType = 'depthUpdate';
+            } else if (msg.data.stream.includes('@kline')) {
+              eventType = 'kline';
+            } else if (msg.data.stream.includes('@miniTicker')) {
+              eventType = '24hrMiniTicker';
+            } else {
+              eventType = 'stream';
+            }
+          }
+          // Check for user-specific messages (pushExecutionReport, pushBalanceUpdate)
+          else if (msg.data.executionType || msg.data.orderId || msg.data.symbol) {
+            eventType = 'executionReport';
+            stream = 'user';
+          }
+          else if (msg.data.balanceUpdate || msg.data.asset || msg.data.wallet) {
+            eventType = 'balanceUpdate';
+            stream = 'user';
+          }
+          // Check for heartbeat/ping messages
+          else if (msg.data.ping || msg.data.pong) {
+            eventType = 'ping';
+            stream = 'heartbeat';
+          }
+          // Check for error messages
+          else if (msg.data.error) {
+            eventType = 'error';
+            stream = 'system';
+          }
+          // Check for result messages (subscription responses)
+          else if (msg.data.result !== undefined) {
+            eventType = 'result';
+            stream = 'system';
+          }
+          // Check if it's a simple string message
+          else if (typeof msg.data === 'string') {
+            if (msg.data.toLowerCase().includes('pong')) {
+              eventType = 'pong';
+              stream = 'heartbeat';
+            } else {
+              eventType = 'message';
+              stream = 'system';
+            }
+          }
+          // Additional checks for direct event type in data
+          else if (msg.data.e) {
+            eventType = msg.data.e;
+            if (msg.data.e === 'trade') stream = 'market';
+            else if (msg.data.e === 'depthUpdate') stream = 'market';
+            else if (msg.data.e === 'kline') stream = 'market';
+            else if (msg.data.e === '24hrMiniTicker') stream = 'market';
+            else stream = 'market';
+          }
+        }
         
         const line = `${timeAgo.padStart(3)} ago │ ${clientId.padEnd(3)} │ ${eventType.padEnd(12)} │ ${stream.substring(0, 20)}`;
         const linePadding = width - 2 - line.length;
