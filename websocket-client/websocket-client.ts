@@ -1,5 +1,5 @@
-import { WebSocket } from "ws";
 import readline from "readline";
+import { WebSocket } from "ws";
 
 const config = {
   url: process.env.WEBSOCKET_URL || 'ws://localhost:42080',
@@ -12,10 +12,6 @@ type ServerMessage =
   | { id: number | null; result: any }
   | { stream: string; data: any }
   | { method: "PONG" };
-
-interface WebSocketMessage {
-  [key: string]: any;
-}
 
 const rl = readline.createInterface({
   input: process.stdin,

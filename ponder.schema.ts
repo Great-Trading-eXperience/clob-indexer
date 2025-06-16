@@ -46,7 +46,12 @@ export const orders = onchainTable(
 		sideIdx: index().on(table.side),
 		statusIdx: index().on(table.status),
 		poolIdx: index().on(table.poolId),
-		chainIdIdx: index().on(table.chainId),
+		chainIdIdx: index().on(table.chainId),		
+		orderIdChainIdx: index().on(table.orderId, table.chainId),
+		poolChainStatusIdx: index().on(table.poolId, table.chainId, table.status),
+		poolChainSideIdx: index().on(table.poolId, table.chainId, table.side),
+		userPoolIdx: index().on(table.user, table.poolId),
+		timestampIdx: index().on(table.timestamp),
 	})
 );
 
@@ -66,33 +71,38 @@ export const orderHistory = onchainTable(
 		orderIdx: index().on(table.orderId),
 		poolIdx: index().on(table.poolId),
 		chainIdIdx: index().on(table.chainId),
+		orderIdChainIdx: index().on(table.orderId, table.chainId),
+		poolChainTimestampIdx: index().on(table.poolId, table.chainId, table.timestamp),
 	})
 );
 
 export const orderBookDepth = onchainTable(
 	"order_book_depth",
 	t => ({
-		id: t.text().primaryKey(), 
+		id: t.text().primaryKey(),
 		chainId: t.integer().notNull(),
 		poolId: t.hex().notNull(),
-		side: t.varchar().notNull(), 
+		side: t.varchar().notNull(),
 		price: t.bigint().notNull(),
-		quantity: t.bigint().notNull(), 
-		orderCount: t.integer().notNull(), 
+		quantity: t.bigint().notNull(),
+		orderCount: t.integer().notNull(),
 		lastUpdated: t.integer().notNull(),
 	}),
 	table => ({
 		poolSideIdx: index().on(table.poolId, table.side),
 		poolPriceIdx: index().on(table.poolId, table.price),
 		chainIdIdx: index().on(table.chainId),
-		lastUpdatedIdx: index().on(table.lastUpdated),
+		lastUpdatedIdx: index().on(table.lastUpdated),		
+		poolChainSideIdx: index().on(table.poolId, table.chainId, table.side),
+		poolChainSidePriceIdx: index().on(table.poolId, table.chainId, table.side, table.price), // Complete depth query coverage
+		quantityIdx: index().on(table.quantity), 
 	})
 );
 
 export const orderBookDepthSnapshots = onchainTable(
 	"order_book_depth_snapshots",
 	t => ({
-		id: t.text().primaryKey(),	
+		id: t.text().primaryKey(),
 		chainId: t.integer().notNull(),
 		poolId: t.hex().notNull(),
 		timestamp: t.bigint().notNull(),
@@ -104,6 +114,7 @@ export const orderBookDepthSnapshots = onchainTable(
 		poolTimeIdx: index().on(table.poolId, table.timestamp),
 		chainIdIdx: index().on(table.chainId),
 		sequenceIdx: index().on(table.sequenceNumber),
+		poolChainTimestampIdx: index().on(table.poolId, table.chainId, table.timestamp), 
 	})
 );
 
@@ -130,7 +141,6 @@ export const orderHistoryRelations = relations(orderHistory, ({ one }) => ({
 	}),
 }));
 
-// Depth Relations
 export const orderBookDepthRelations = relations(orderBookDepth, ({ one }) => ({
 	pool: one(pools, {
 		fields: [orderBookDepth.poolId, orderBookDepth.chainId],
@@ -154,6 +164,9 @@ export const trades = onchainTable(
 		transactionIdx: index().on(table.transactionId),
 		poolIdx: index().on(table.poolId),
 		chainIdIdx: index().on(table.chainId),
+		orderIdIdx: index().on(table.orderId),
+		poolChainTimestampIdx: index().on(table.poolId, table.chainId, table.timestamp),
+		timestampIdx: index().on(table.timestamp),
 	})
 );
 
@@ -181,6 +194,9 @@ export const orderBookTrades = onchainTable(
 		transactionIdx: index().on(table.transactionId),
 		poolIdx: index().on(table.poolId),
 		chainIdIdx: index().on(table.chainId),
+		poolChainTimestampIdx: index().on(table.poolId, table.chainId, table.timestamp),
+		sideIdx: index().on(table.side),
+		timestampIdx: index().on(table.timestamp),
 	})
 );
 
@@ -204,12 +220,14 @@ const createBucketTable = (tableName: string) =>
 			average: t.real().notNull(),
 			poolId: t.hex().notNull(),
 		}),
-		table => ({
+		(table) => ({
 			openTimeIdx: index().on(table.openTime),
 			poolIdx: index().on(table.poolId),
 			chainIdIdx: index().on(table.chainId),
-		})
-	);
+			poolOpenTimeIdx: index().on(table.poolId, table.openTime),
+			poolChainOpenTimeIdx: index().on(table.poolId, table.chainId, table.openTime),
+			closeTimeIdx: index().on(table.closeTime),
+		}));
 
 export const minuteBuckets = createBucketTable("minute_buckets");
 export const fiveMinuteBuckets = createBucketTable("five_minute_buckets");
@@ -230,6 +248,8 @@ export const balances = onchainTable(
 	table => ({
 		currencyIdx: index().on(table.currency),
 		chainIdIdx: index().on(table.chainId),
+		userCurrencyIdx: index().on(table.user, table.currency),
+		userChainIdx: index().on(table.user, table.chainId),
 	})
 );
 
@@ -246,6 +266,10 @@ export const marketMakers = onchainTable(
 	}),
 	table => ({
 		chainIdIdx: index().on(table.chainId),
+		userIdx: index().on(table.user),
+		poolIdx: index().on(table.poolId),
+		userPoolIdx: index().on(table.user, table.poolId),
+		expiryIdx: index().on(table.expiry),
 	})
 );
 
@@ -262,6 +286,10 @@ export const velockPositions = onchainTable(
 	}),
 	table => ({
 		chainIdIdx: index().on(table.chainId),
+		userIdx: index().on(table.user),
+		poolIdx: index().on(table.poolId),
+		userPoolIdx: index().on(table.user, table.poolId),
+		expiryIdx: index().on(table.expiry),
 	})
 );
 
@@ -279,6 +307,13 @@ export const votes = onchainTable(
 	}),
 	table => ({
 		chainIdIdx: index().on(table.chainId),
+		
+		// NEW: Additional indexes for vote queries
+		userIdx: index().on(table.user),
+		poolIdx: index().on(table.poolId),
+		userPoolIdx: index().on(table.user, table.poolId),
+		timestampIdx: index().on(table.timestamp),
+		expiryIdx: index().on(table.expiry),
 	})
 );
 
@@ -294,7 +329,9 @@ export const currencies = onchainTable(
 	}),
 	table => ({
 		chainIdIdx: index().on(table.chainId),
-		addressIdx: index().on(table.address),
+		addressIdx: index().on(table.address),		
+		addressChainIdx: index().on(table.address, table.chainId),
+		symbolIdx: index().on(table.symbol),
 	})
 );
 
@@ -315,3 +352,61 @@ export const balancesCurrenciesRelations = relations(balances, ({ one }) => ({
 		references: [currencies.address, currencies.chainId],
 	}),
 }));
+
+export const faucetRequests = onchainTable(
+	"faucet_requests",
+	t => ({
+		id: t.text().primaryKey(),
+		chainId: t.integer().notNull(),
+		requester: t.hex().notNull(),
+		receiver: t.hex().notNull(),
+		token: t.hex().notNull(),
+		amount: t.bigint(),
+		timestamp: t.integer(),
+		transactionId: t.text(),
+		blockNumber: t.text(),
+	}),
+	table => ({
+		requesterIdx: index().on(table.requester),
+		tokenIdx: index().on(table.token),
+		chainIdIdx: index().on(table.chainId),
+		timestampIdx: index().on(table.timestamp),
+	})
+);
+
+export const faucetDeposits = onchainTable(
+	"faucet_deposits",
+	t => ({
+		id: t.text().primaryKey(),
+		chainId: t.integer().notNull(),
+		depositor: t.hex().notNull(),
+		token: t.hex().notNull(),
+		amount: t.bigint(),
+		timestamp: t.integer(),
+		transactionId: t.text(),
+		blockNumber: t.text(),
+	}),
+	table => ({
+		depositorIdx: index().on(table.depositor),
+		tokenIdx: index().on(table.token),
+		chainIdIdx: index().on(table.chainId),
+		timestampIdx: index().on(table.timestamp),
+	})
+);
+
+export const faucetTokens = onchainTable(
+	"faucet_tokens",
+	t => ({
+		id: t.text().primaryKey(),
+		chainId: t.integer().notNull(),
+		token: t.hex().notNull(),
+		timestamp: t.integer(),
+		transactionId: t.text(),
+		blockNumber: t.text(),
+	}),
+	table => ({
+		tokenIdx: index().on(table.token),
+		chainIdIdx: index().on(table.chainId),
+		timestampIdx: index().on(table.timestamp),
+	})
+);

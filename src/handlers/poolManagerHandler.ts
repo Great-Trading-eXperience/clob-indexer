@@ -1,13 +1,14 @@
-import {currencies, pools} from "ponder:schema";
-import {ERC20ABI} from "../../abis/ERC20";
-import {Address, getAddress, toHex} from "viem";
-import {createCurrencyId, createPoolId} from "../utils/hash";
-import { pushMiniTicker } from "../websocket/broadcaster";
 import dotenv from "dotenv";
+import { currencies, pools } from "ponder:schema";
+import { Address, getAddress } from "viem";
+import { ERC20ABI } from "../../abis/ERC20";
+import { createCurrencyId, createPoolId } from "../utils/hash";
+import { createPoolCacheKey, setCachedData } from "../utils/redis";
+import { executeIfInSync, shouldEnableWebSocket } from "../utils/syncState";
+import { pushMiniTicker } from "../websocket/broadcaster";
 
 dotenv.config();
 
-const ENABLED_WEBSOCKET = process.env.ENABLE_WEBSOCKET === 'true';
 
 async function fetchTokenData(client: any, address: string) {
     try {
@@ -74,26 +75,35 @@ export async function handlePoolCreated({event, context}: any) {
 
     const poolId = createPoolId(chainId, orderBook);
 
+    const poolData = {
+        id: poolId,
+        chainId,
+        coin,
+        orderBook,
+        baseCurrency,
+        quoteCurrency,
+        baseDecimals: baseData.decimals,
+        quoteDecimals: quoteData.decimals,
+        volume: BigInt(0),
+        volumeInQuote: BigInt(0),
+        price: BigInt(0),
+        timestamp: Number(event.block.timestamp),
+    };
+
     await db
         .insert(pools)
-        .values({
-            id: poolId,
-            chainId,
-            coin,
-            orderBook,
-            baseCurrency,
-            quoteCurrency,
-            baseDecimals: baseData.decimals,
-            quoteDecimals: quoteData.decimals,
-            volume: BigInt(0),
-            volumeInQuote: BigInt(0),
-            price: BigInt(0),
-            timestamp: Number(event.block.timestamp),
-        })
+        .values(poolData)
         .onConflictDoNothing();
 
-    if (ENABLED_WEBSOCKET) {
+    try {
+        const cacheKey = createPoolCacheKey(orderBook, chainId);
+        await setCachedData(cacheKey, poolData);
+    } catch (error) {
+        console.error('Failed to cache pool data:', error);
+    }
+
+    await executeIfInSync(Number(event.block.number), async () => {
         const symbol = coin.replace('/', '').toLowerCase();
         pushMiniTicker(symbol, "0", "0", "0", "0");
-    }
+    });
 }
