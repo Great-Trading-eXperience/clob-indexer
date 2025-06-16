@@ -114,12 +114,6 @@ const menuCategories: MenuCategory[] = [
     emoji: '🧪',
     items: [
       {
-        name: 'Simulate Market Data',
-        value: 'simulate-market',
-        description: 'Run market data simulation',
-        command: 'pnpm simulate-market'
-      },
-      {
         name: 'WebSocket Client',
         value: 'ws-client',
         description: 'Run the WebSocket client for testing connections',

@@ -16,7 +16,6 @@
     "metrics:watch": "tsx ./scripts/watch-metrics.ts",
     "metrics:dashboard": "tsx ./scripts/metrics-dashboard-fixed.ts",
     "monitor": "tsx ./scripts/run-system-monitor.ts",
-    "simulate-market": "tsx ./scripts/simulate-market-data.ts",
     "ws-client": "tsx ./websocket-client/websocket-client.ts",
     "ws-stress-test": "tsx ./websocket-client/stress-test.ts"
   },
