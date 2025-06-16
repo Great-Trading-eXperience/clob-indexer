@@ -7,7 +7,7 @@ dotenv.config();
 export default createConfig({
   database: {
     kind: "postgres",
-    connectionString: process.env.DATABASE_URL,
+    connectionString: process.env.PONDER_DATABASE_URL,
   },
   ...getBaseConfig(),
 });

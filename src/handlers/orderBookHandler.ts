@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import { eq, and, gte, desc, or } from "ponder";
+import { and, desc, eq, gte } from "ponder";
 import {
     dailyBuckets,
     fiveMinuteBuckets,
@@ -20,8 +20,8 @@ import { getPoolTokenDecimals } from "../utils/getPoolTokenDecimals";
 import { getPoolTradingPair } from "../utils/getPoolTradingPair";
 import { createOrderHistoryId, createOrderId, createPoolId, createTradeId } from "../utils/hash";
 import { pushExecutionReport } from "../utils/pushExecutionReport";
-import { pushDepth, pushKline, pushMiniTicker, pushTrade } from "../websocket/broadcaster";
 import { executeIfInSync } from "../utils/syncState";
+import { pushDepth, pushKline, pushMiniTicker, pushTrade } from "../websocket/broadcaster";
 
 dotenv.config();
 
@@ -88,7 +88,7 @@ export async function handleOrderPlaced({ event, context }: any) {
             timestamp
         );
 
-        if (ENABLED_WEBSOCKET) {
+        await executeIfInSync(Number(event.block.number), async () => {
             const order = await context.db.find(orders, { id: id });
             pushExecutionReport(symbol.toLowerCase(), order.user, order, "NEW", "NEW", BigInt(0), BigInt(0), timestamp * 1000);
 
@@ -147,7 +147,7 @@ export async function handleOrderMatched({ event, context }: any) {
     });
 
     const buyOrderId = createOrderId(BigInt(event.args.buyOrderId!), event.log.address!, chainId);
-    
+
     const buyRow = await context.db.find(orders, {
         id: buyOrderId
     });
@@ -158,7 +158,7 @@ export async function handleOrderMatched({ event, context }: any) {
             id: tradeId,
             chainId: chainId,
             transactionId: event.transaction.hash,
-            orderId: buyOrderId, 
+            orderId: buyOrderId,
             timestamp: timestamp,
             price: BigInt(event.args.executionPrice),
             quantity: BigInt(event.args.executedQuantity),
@@ -189,7 +189,7 @@ export async function handleOrderMatched({ event, context }: any) {
     );
 
     const sellOrderId = createOrderId(BigInt(event.args.sellOrderId!), event.log.address!, chainId);
-    
+
     const sellRowById = await context.db.find(orders, {
         id: sellOrderId
     });
@@ -261,8 +261,7 @@ export async function handleOrderMatched({ event, context }: any) {
         );
     }
 
-    // Only emit WebSocket events if we're in sync
-    await executeIfInSync(context, event.block.number, timestamp, async () => {
+    await executeIfInSync(Number(event.block.number), async () => {
         const symbolLower = symbol.toLowerCase();
         const txHash = event.transaction.hash;
         const price = event.args.executionPrice.toString();
@@ -376,7 +375,7 @@ export async function handleOrderCancelled({ event, context }: any) {
         timestamp
     );
 
-    if (ENABLED_WEBSOCKET) {
+    await executeIfInSync(Number(event.block.number), async () => {
         const row = await context.db.find(orders, { id: id });
 
         if (!row) return;
@@ -427,7 +426,7 @@ export async function handleUpdateOrder({ event, context }: any) {
         timestamp
     );
 
-    if (ENABLED_WEBSOCKET) {
+    await executeIfInSync(Number(event.block.number), async () => {
         const row = await context.db.find(orders, { id: id });
 
         if (!row) return;

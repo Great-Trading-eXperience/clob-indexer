@@ -3,6 +3,11 @@
 import { systemMonitor } from '../src/utils/systemMonitor.js';
 import dotenv from 'dotenv';
 
+console.log('⚠️  DEPRECATED: metrics:start script');
+console.log('📝 For accurate WebSocket metrics, use integrated monitoring instead:');
+console.log('   ENABLE_SYSTEM_MONITOR=true pnpm dev');
+console.log('');
+
 // Load environment variables
 dotenv.config();
 

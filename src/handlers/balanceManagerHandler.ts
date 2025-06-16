@@ -3,24 +3,25 @@ import { balances } from "ponder:schema";
 import { getAddress } from "viem";
 import { createBalanceId } from "../utils/hash";
 import { pushBalanceUpdate } from "../websocket/broadcaster";
+import { executeIfInSync } from "../utils/syncState";
 
 dotenv.config();
 
-const ENABLED_WEBSOCKET = process.env.ENABLE_WEBSOCKET === 'true';
-
 async function fetchAndPushBalance(context: any, balanceId: string, timestamp: number) {
-    if (!ENABLED_WEBSOCKET) return;
+    const blockNumber = context.block?.number || 0;
     
-    const balance = await context.db.find(balances, { id: balanceId });
-    if (balance) {
-        pushBalanceUpdate(balance.user, {
-            e: "balanceUpdate",
-            E: timestamp,
-            a: balance.currency,
-            b: balance.amount.toString(),
-            l: balance.lockedAmount.toString()
-        });
-    }
+    await executeIfInSync(blockNumber, async () => {
+        const balance = await context.db.find(balances, { id: balanceId });
+        if (balance) {
+            pushBalanceUpdate(balance.user, {
+                e: "balanceUpdate",
+                E: timestamp,
+                a: balance.currency,
+                b: balance.amount.toString(),
+                l: balance.lockedAmount.toString()
+            });
+        }
+    });
 }
 
 function fromId(id: number): string {

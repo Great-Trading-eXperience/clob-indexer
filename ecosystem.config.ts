@@ -25,6 +25,29 @@ const config: Pm2Config = {
             env: {
                 NODE_ENV: "production"
             }
+        },
+        {
+            name: "metrics-dashboard",
+            script: "node",
+            args: "--import ./scripts/ts-register.js ./scripts/metrics-dashboard.ts",
+            autorestart: true,
+            watch: false,
+            restart_delay: 3000,
+            env: {
+                NODE_ENV: "production"
+            }
+        },
+        {
+            name: "ws-stress-test",
+            script: "tsx",
+            args: "./websocket-client/stress-test.ts",
+            autorestart: false,
+            watch: false,
+            env: {
+                NODE_ENV: "production",
+                WS_URL: "ws://localhost:42069/ws",
+                CLIENT_COUNT: "50"
+            }
         }
     ]
 };

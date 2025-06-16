@@ -8,7 +8,7 @@ interface StressTestConfig {
   userAddresses?: string[];
   pingInterval: number;
   connectionDelay: number;
-  duration?: number; // in seconds, optional
+  duration?: number; 
 }
 
 interface ClientStats {
@@ -18,12 +18,13 @@ interface ClientStats {
   lastMessageTime: number;
   subscriptions: string[];
   userSocket?: boolean;
+  latestMessages: Array<{timestamp: number, data: any}>; // Store latest messages
 }
 
 interface SystemStats {
   timestamp: number;
   memoryUsage: {
-    rss: number; // Resident Set Size
+    rss: number; 
     heapUsed: number;
     heapTotal: number;
     external: number;
@@ -58,7 +59,8 @@ class StressTestClient {
       messagesReceived: 0,
       lastMessageTime: 0,
       subscriptions: [],
-      userSocket: false
+      userSocket: false,
+      latestMessages: [] // Initialize empty array for latest messages
     };
   }
 
@@ -84,12 +86,20 @@ class StressTestClient {
 
       this.ws.on("message", (data: Buffer) => {
         this.stats.messagesReceived++;
-        this.stats.lastMessageTime = Date.now();
+        const timestamp = Date.now();
+        this.stats.lastMessageTime = timestamp;
         
         try {
           const message = JSON.parse(data.toString());
-          // Optionally log messages (comment out for less noise)
-          // console.log(`[Client ${this.stats.id}] Received:`, message);
+          // Store the latest message with timestamp
+          this.stats.latestMessages.push({
+            timestamp,
+            data: message
+          });
+          // Keep only the 5 most recent messages
+          if (this.stats.latestMessages.length > 5) {
+            this.stats.latestMessages.shift();
+          }
         } catch (error) {
           console.error(`[Client ${this.stats.id}] Parse error:`, error);
         }
@@ -124,12 +134,20 @@ class StressTestClient {
 
       this.userWs.on("message", (data: Buffer) => {
         this.stats.messagesReceived++;
-        this.stats.lastMessageTime = Date.now();
+        const timestamp = Date.now();
+        this.stats.lastMessageTime = timestamp;
         
         try {
           const message = JSON.parse(data.toString());
-          // Optionally log user messages
-          // console.log(`[Client ${this.stats.id}] User message:`, message);
+          // Store the latest user message with timestamp
+          this.stats.latestMessages.push({
+            timestamp,
+            data: message
+          });
+          // Keep only the 5 most recent messages
+          if (this.stats.latestMessages.length > 5) {
+            this.stats.latestMessages.shift();
+          }
         } catch (error) {
           console.error(`[Client ${this.stats.id}] User parse error:`, error);
         }
@@ -214,20 +232,28 @@ class StressTestRunner {
     // Connect clients with delay
     for (let i = 0; i < this.clients.length; i++) {
       try {
-        await this.clients[i].connect();
-        
-        // Connect user socket if addresses provided - cycle through addresses if more clients than addresses
-        if (this.config.userAddresses && this.config.userAddresses.length > 0) {
-          const addressIndex = i % this.config.userAddresses.length;
-          await this.clients[i].connectUser(this.config.userAddresses[addressIndex]);
+        const client = this.clients[i];
+        if (client) {
+          await client.connect();
+          
+          // Connect user socket if addresses provided - cycle through addresses if more clients than addresses
+          if (this.config.userAddresses && this.config.userAddresses.length > 0) {
+            const addressIndex = i % this.config.userAddresses.length;
+            const address = this.config.userAddresses[addressIndex];
+            if (address) {
+              await client.connectUser(address);
+            }
+          }
         }
       } catch (error) {
         console.error(`Failed to connect client ${i + 1}:`, error);
       }
 
-      // Wait before connecting next client
-      if (i < this.clients.length - 1) {
-        await this.delay(this.config.connectionDelay);
+      // Add delay between client connections if configured
+      if (i < this.clients.length - 1 && this.config.connectionDelay) {
+        const delay = this.config.connectionDelay;
+        console.log(`Waiting ${delay}ms before connecting next client...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
 
@@ -261,55 +287,237 @@ class StressTestRunner {
     const systemStats = this.collectSystemStats();
     this.systemStatsHistory.push(systemStats);
 
-    console.log(`\n📈 Stats (${elapsedSeconds.toFixed(1)}s):`);
-    console.log(`🔗 Connected: ${connectedClients}/${this.config.numClients}`);
-    console.log(`📨 Total messages: ${totalMessages}`);
-    console.log(`📊 Avg messages/client: ${avgMessagesPerClient.toFixed(2)}`);
-    console.log(`⚡ Messages/second: ${messagesPerSecond.toFixed(2)}`);
-    
-    // System performance stats
-    console.log(`\n💻 System Performance:`);
-    console.log(`🧠 Process Memory:`);
-    console.log(`   RSS: ${this.formatBytes(systemStats.memoryUsage.rss)}`);
-    console.log(`   Heap Used: ${this.formatBytes(systemStats.memoryUsage.heapUsed)}`);
-    console.log(`   Heap Total: ${this.formatBytes(systemStats.memoryUsage.heapTotal)}`);
-    console.log(`   External: ${this.formatBytes(systemStats.memoryUsage.external)}`);
-    
-    console.log(`🖥️  System Memory:`);
-    console.log(`   Total: ${this.formatBytes(systemStats.systemMemory.total)}`);
-    console.log(`   Used: ${this.formatBytes(systemStats.systemMemory.used)} (${systemStats.systemMemory.percentage.toFixed(1)}%)`);
-    console.log(`   Free: ${this.formatBytes(systemStats.systemMemory.free)}`);
-    
-    console.log(`⚙️  CPU Time:`);
-    console.log(`   User: ${this.formatCpuTime(systemStats.cpuUsage.user)}`);
-    console.log(`   System: ${this.formatCpuTime(systemStats.cpuUsage.system)}`);
-    
-    console.log(`🌐 Network: ${systemStats.networkConnections} active connections`);
-    
-    // Show memory growth if we have history
-    if (this.systemStatsHistory.length > 1) {
-      const previousStats = this.systemStatsHistory[this.systemStatsHistory.length - 2];
-      const memoryGrowth = systemStats.memoryUsage.rss - previousStats.memoryUsage.rss;
-      const growthPerSecond = memoryGrowth / 5; // 5 second intervals
-      
-      if (Math.abs(memoryGrowth) > 1024 * 1024) { // Only show if > 1MB change
-        console.log(`📈 Memory Growth: ${memoryGrowth > 0 ? '+' : ''}${this.formatBytes(memoryGrowth)} (${this.formatBytes(growthPerSecond)}/s)`);
-      }
-    }
-    
-    // Show individual client stats (first 5 clients only to avoid spam)
-    console.log(`\n👥 Individual client stats (first 5):`);
-    this.clients.slice(0, 5).forEach(client => {
-      console.log(`  Client ${client.stats.id}: ${client.stats.connected ? '✅' : '❌'} | ` +
-        `${client.stats.messagesReceived} msgs | ` +
-        `${client.stats.subscriptions.length} subs` +
-        (client.stats.userSocket ? ' | 👤' : ''));
-    });
+    // Clear screen and draw htop-style dashboard
+    this.clearScreen();
+    this.drawHeader(elapsedSeconds);
+    this.drawOverview(connectedClients, totalMessages, avgMessagesPerClient, messagesPerSecond);
+    this.drawSystemStats(systemStats);
+    this.drawConnectionDetails();
+    this.drawClientStats();
+    this.drawRecentMessages();
+    this.drawFooter();
   }
 
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  private clearScreen(): void {
+    console.clear();
+    // Move cursor to top-left
+    process.stdout.write('\x1b[H');
   }
+
+  private drawHeader(elapsedSeconds: number): void {
+    const title = 'GTX WebSocket Stress Test Dashboard';
+    const uptime = this.formatUptime(elapsedSeconds);
+    const timestamp = new Date().toLocaleTimeString();
+    
+    const width = 78;
+    console.log('┌' + '─'.repeat(width) + '┐');
+    
+    const titlePadding = width - 2 - title.length;
+    console.log(`│ ${title}${' '.repeat(titlePadding)} │`);
+    
+    // Format second line with proper alignment
+    const leftPart = `Uptime: ${uptime}`;
+    const rightPart = `Time: ${timestamp}`;
+    const middleSpaces = width - 2 - leftPart.length - rightPart.length;
+    console.log(`│ ${leftPart}${' '.repeat(Math.max(0, middleSpaces))}${rightPart} │`);
+    console.log('├' + '─'.repeat(width) + '┤');
+  }
+
+  private drawOverview(connected: number, totalMsgs: number, avgMsgs: number, msgRate: number): void {
+    const width = 78;
+    const content = [
+      `Clients: ${connected}/${this.config.numClients}`,
+      `Messages: ${totalMsgs}`,
+      `Avg/Client: ${avgMsgs.toFixed(1)}`,
+      `Rate: ${msgRate.toFixed(2)}/s`
+    ].join(' │ ');
+    
+    const overviewPadding = width - 2 - 8; // "Overview" = 8 chars
+    console.log(`│ Overview${' '.repeat(overviewPadding)} │`);
+    
+    const contentPadding = width - 2 - content.length;
+    console.log(`│ ${content}${' '.repeat(contentPadding)} │`);
+    console.log('├' + '─'.repeat(width) + '┤');
+  }
+
+  private drawSystemStats(systemStats: SystemStats): void {
+    const width = 78;
+    const memUsed = this.formatBytes(systemStats.memoryUsage.heapUsed);
+    const memTotal = this.formatBytes(systemStats.memoryUsage.heapTotal);
+    const rss = this.formatBytes(systemStats.memoryUsage.rss);
+    const cpuUser = this.formatCpuTime(systemStats.cpuUsage.user);
+    const cpuSys = this.formatCpuTime(systemStats.cpuUsage.system);
+    
+    const titlePadding = width - 2 - 16; // "System Resources" = 16 chars
+    console.log(`│ System Resources${' '.repeat(titlePadding)} │`);
+    
+    const memPart = `Memory: ${memUsed}/${memTotal}`;
+    const rssPart = `RSS: ${rss}`;
+    const cpuPart = `CPU: ${cpuUser}+${cpuSys}`;
+    const content = `${memPart} │ ${rssPart} │ ${cpuPart}`;
+    
+    const contentPadding = width - 2 - content.length;
+    console.log(`│ ${content}${' '.repeat(contentPadding)} │`);
+    console.log('├' + '─'.repeat(width) + '┤');
+  }
+
+  private drawConnectionDetails(): void {
+    const width = 78;
+    const url = this.config.url;
+    const streams = this.config.streams.join(', ');
+    
+    const titlePadding = width - 2 - 18; // "Connection Details" = 18 chars
+    console.log(`│ Connection Details${' '.repeat(titlePadding)} │`);
+    
+    const urlContent = `URL: ${url}`;
+    const urlPadding = width - 2 - urlContent.length;
+    console.log(`│ ${urlContent}${' '.repeat(urlPadding)} │`);
+    
+    // Handle long stream names with proper wrapping
+    const streamPrefix = 'Streams: ';
+    const maxStreamWidth = width - 2 - streamPrefix.length;
+    
+    if (streams.length <= maxStreamWidth) {
+      const streamContent = `${streamPrefix}${streams}`;
+      const streamPadding = width - 2 - streamContent.length;
+      console.log(`│ ${streamContent}${' '.repeat(streamPadding)} │`);
+    } else {
+      const firstLine = streams.substring(0, maxStreamWidth);
+      const firstContent = `${streamPrefix}${firstLine}`;
+      const firstPadding = width - 2 - firstContent.length;
+      console.log(`│ ${firstContent}${' '.repeat(firstPadding)} │`);
+      
+      if (streams.substring(maxStreamWidth).length > 0) {
+        const secondLine = streams.substring(maxStreamWidth);
+        const maxSecondWidth = width - 2 - 9; // 9 spaces for continuation
+        const continuation = `         ${secondLine.substring(0, maxSecondWidth)}`;
+        const contPadding = width - 2 - continuation.length;
+        console.log(`│ ${continuation}${' '.repeat(contPadding)} │`);
+      }
+    }
+    console.log('├' + '─'.repeat(width) + '┤');
+  }
+
+  private drawClientStats(): void {
+    const width = 78;
+    
+    const titlePadding = width - 2 - 13; // "Client Status" = 13 chars
+    console.log(`│ Client Status${' '.repeat(titlePadding)} │`);
+    
+    const headerContent = "ID │ Status │ Messages │ Subs │ Type │ Last Activity";
+    const headerPadding = width - 2 - headerContent.length;
+    console.log(`│ ${headerContent}${' '.repeat(headerPadding)} │`);
+    console.log('├' + '─'.repeat(width) + '┤');
+    
+    // Show up to 10 clients in a compact table format
+    this.clients.slice(0, 10).forEach(client => {
+      const id = client.stats.id.toString().padStart(2);
+      const status = client.stats.connected ? ' ✅   ' : ' ❌   '; // 6 chars to match "Status"
+      const messages = client.stats.messagesReceived.toString().padStart(8); // 8 chars to match "Messages"
+      const subs = client.stats.subscriptions.length.toString().padStart(4); // 4 chars to match "Subs"
+      const type = client.stats.userSocket ? 'User' : 'Pub '; // 4 chars to match "Type"
+      const lastActivity = client.stats.lastMessageTime > 0 ? 
+        `${((Date.now() - client.stats.lastMessageTime) / 1000).toFixed(0)}s ago`.padEnd(13) : // 13 chars to match "Last Activity"
+        '     -      ';
+      
+      // Build the row with exact spacing to match header: "ID │ Status │ Messages │ Subs │ Type │ Last Activity"
+      const row = `${id} │ ${status} │ ${messages} │ ${subs} │ ${type} │ ${lastActivity}`;
+      const rowPadding = width - 2 - row.length;
+      console.log(`│ ${row}${' '.repeat(rowPadding)} │`);
+    });
+    
+    if (this.clients.length > 10) {
+      const moreInfo = `... and ${this.clients.length - 10} more clients`;
+      const morePadding = width - 2 - moreInfo.length;
+      console.log(`│ ${moreInfo}${' '.repeat(morePadding)} │`);
+    }
+    console.log('├' + '─'.repeat(width) + '┤');
+  }
+
+  private drawRecentMessages(): void {
+    const width = 78;
+    const titlePadding = width - 2 - 24; // "Recent Messages (Last 5)" = 24 chars
+    console.log(`│ Recent Messages (Last 5)${' '.repeat(titlePadding)} │`);
+    
+    // Collect all recent messages from all clients
+    const allMessages: Array<{timestamp: number, clientId: number, data: any}> = [];
+    this.clients.forEach(client => {
+      client.stats.latestMessages.forEach(msg => {
+        allMessages.push({
+          timestamp: msg.timestamp,
+          clientId: client.stats.id,
+          data: msg.data
+        });
+      });
+    });
+    
+    // Sort by timestamp (newest first) and take top 5
+    const recentMessages = allMessages
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 5);
+    
+    if (recentMessages.length === 0) {
+      const noPadding = width - 2 - 27; // "No messages received yet..." = 27 chars
+      console.log(`│ No messages received yet...${' '.repeat(noPadding)} │`);
+    } else {
+      recentMessages.forEach(msg => {
+        const timeAgo = `${((Date.now() - msg.timestamp) / 1000).toFixed(0)}s`;
+        const clientId = `C${msg.clientId}`;
+        const eventType = msg.data.data?.e || msg.data.method || 'unknown';
+        const stream = msg.data.stream || 'system';
+        
+        const line = `${timeAgo.padStart(3)} ago │ ${clientId.padEnd(3)} │ ${eventType.padEnd(12)} │ ${stream.substring(0, 20)}`;
+        const linePadding = width - 2 - line.length;
+        console.log(`│ ${line}${' '.repeat(linePadding)} │`);
+      });
+    }
+    console.log('├' + '─'.repeat(width) + '┤');
+  }
+
+  private drawFooter(): void {
+    const width = 78;
+    const memGrowth = this.getMemoryGrowth();
+    const pingInterval = `${this.config.pingInterval / 1000}s`;
+    
+    const titlePadding = width - 2 - 11; // "Performance" = 11 chars
+    console.log(`│ Performance${' '.repeat(titlePadding)} │`);
+    
+    const leftPart = `PING Interval: ${pingInterval}`;
+    const rightPart = `Memory Growth: ${memGrowth}`;
+    const middleSpaces = width - 2 - leftPart.length - rightPart.length;
+    console.log(`│ ${leftPart}${' '.repeat(Math.max(0, middleSpaces))}${rightPart} │`);
+    
+    console.log('└' + '─'.repeat(width) + '┘');
+    console.log('\nPress Ctrl+C to stop the stress test');
+  }
+
+  private getMemoryGrowth(): string {
+    if (this.systemStatsHistory.length < 2) return 'calculating...';
+    
+    const current = this.systemStatsHistory[this.systemStatsHistory.length - 1];
+    const previous = this.systemStatsHistory[this.systemStatsHistory.length - 2];
+    
+    if (!current || !previous || !current.memoryUsage || !previous.memoryUsage) return 'N/A';
+    
+    const growth = current.memoryUsage.rss - previous.memoryUsage.rss;
+    const growthPerSec = growth / 5; // 5 second intervals
+    
+    if (Math.abs(growth) < 1024 * 1024) return 'stable';
+    
+    const sign = growth > 0 ? '+' : '';
+    return `${sign}${this.formatBytes(Math.abs(growthPerSec))}/s`;
+  }
+
+  private formatUptime(seconds: number): string {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
+    if (minutes > 0) return `${minutes}m ${secs}s`;
+    return `${secs}s`;
+  }
+
 
   private collectSystemStats(): SystemStats {
     const memUsage = process.memoryUsage();
@@ -448,12 +656,20 @@ class StressTestRunner {
   }
 }
 
+// Synchronized timing configuration
+// Should align with system monitor timing for smooth metrics
+const TIMING_SYNC = {
+  baseUnit: 10, // 10 seconds base
+  monitoringInterval: 30, // 3x base unit (matches system monitor default)
+  pingInterval: 60, // 6x base unit (2x monitoring interval)
+};
+
 // Default configuration
 const defaultConfig: StressTestConfig = {
   url: process.env.WEBSOCKET_URL || 'ws://localhost:42080',
   numClients: 10,
   streams: ['mwethmusdc@trade', 'mwethmusdc@kline_1m', 'mwethmusdc@depth', 'mwethmusdc@miniTicker'],
-  pingInterval: 30000,
+  pingInterval: TIMING_SYNC.pingInterval * 1000, // 60 seconds in ms
   connectionDelay: 100, // 100ms between connections
   duration: undefined // Run indefinitely
 };
@@ -521,7 +737,6 @@ Examples:
   npm run stress-test --users ./user-addresses.txt -c 100
         `);
         process.exit(0);
-        break;
     }
   }
 

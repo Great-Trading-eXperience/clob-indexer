@@ -1,3 +1,4 @@
+import dotenv from "dotenv";
 import { Hono } from "hono";
 import { and, client, desc, eq, graphql, gt, gte, lte, or, sql } from "ponder";
 import { db } from "ponder:api";
@@ -14,8 +15,13 @@ import schema, {
   pools,
   thirtyMinuteBuckets
 } from "ponder:schema";
+import { createPublicClient, http } from "viem";
+import { mainnet, sepolia, goerli, arbitrum, optimism, polygon, base } from "viem/chains";
+import { setCachedData } from "../utils/redis";
 import { systemMonitor } from "../utils/systemMonitor";
 import { bootstrapGateway } from "../websocket/websocket-server";
+
+dotenv.config();
 
 const app = new Hono();
 
@@ -761,13 +767,75 @@ function getIntervalInMs(interval: string): number {
   }
 }
 
+
+async function getCurrentBlockNumber(): Promise<number> {
+  try {
+    const networkName = process.env.NETWORK?.toLowerCase() || 'mainnet';
+    
+    const chainMap: Record<string, any> = {
+      'mainnet': mainnet,
+      'sepolia': sepolia,
+      'goerli': goerli,
+      'arbitrum': arbitrum,
+      'optimism': optimism,
+      'polygon': polygon,
+      'base': base
+    };
+    
+    const chain = chainMap[networkName] || mainnet;
+    console.log(`Using ${networkName} network`);
+    
+    const client = createPublicClient({
+      chain,
+      transport: http()
+    });
+    
+    const blockNumber = await client.getBlockNumber();
+    console.log(`Current block number: ${blockNumber}`);
+    
+    return Number(blockNumber);
+  } catch (error) {
+    console.error('Error getting current block number:', error);
+    return 0;
+  }
+}
+
+async function setWebSocketEnableBlockNumber() {
+  try {
+    const enableWebSocketBlockNumberStr = process.env.ENABLE_WEBSOCKET_BLOCK_NUMBER;
+    let blockNumber: number;
+
+    if (enableWebSocketBlockNumberStr) {
+      blockNumber = parseInt(enableWebSocketBlockNumberStr);
+      console.log(`Using WebSocket enable block number from env: ${blockNumber}`);
+    } else {
+      blockNumber = await getCurrentBlockNumber();
+      console.log(`Using current block number for WebSocket enable: ${blockNumber}`);
+    }
+
+    if (blockNumber > 0) {
+      await setCachedData('websocket:enable:block', blockNumber);
+      console.log(`WebSocket enable block number set to ${blockNumber}`);
+    }
+  } catch (error) {
+    console.error('Error setting WebSocket enable block number:', error);
+  }
+}
+
+
 bootstrapGateway(app);
 
-const ENABLE_MONITORING = process.env.ENABLE_MONITORING === 'true';
-const MONITORING_INTERVAL = parseInt(process.env.MONITORING_INTERVAL || '5');
+setWebSocketEnableBlockNumber();
 
-if (ENABLE_MONITORING) {
-  systemMonitor.start(MONITORING_INTERVAL);
+// Start system monitor for metrics collection (configurable)
+const ENABLE_SYSTEM_MONITOR = process.env.ENABLE_SYSTEM_MONITOR === 'true';
+const SYSTEM_MONITOR_INTERVAL = parseInt(process.env.SYSTEM_MONITOR_INTERVAL || '60');
+
+if (ENABLE_SYSTEM_MONITOR) {
+  console.log(`Starting system monitor for metrics collection (interval: ${SYSTEM_MONITOR_INTERVAL}s)...`);
+  systemMonitor.start(SYSTEM_MONITOR_INTERVAL);
+} else {
+  console.log('System monitor disabled (set ENABLE_SYSTEM_MONITOR=true to enable)');
 }
 
 export default app;     

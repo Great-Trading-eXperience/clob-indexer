@@ -200,6 +200,134 @@ The kline data follows the standard format:
 | 1‑minute candlesticks | `<symbol>@kline_1m` | Any interval supported: 1m, 5m, 1h, 1d … | 
 | 24 h mini‑ticker    | `<symbol>@miniTicker` | Last price / high / low / volume widget. |  
 
+## 🔬 Testing and Monitoring Tools
+
+This project includes tools for stress testing WebSocket connections and monitoring system performance in real-time.
+
+### 🚀 WebSocket Stress Test
+
+The stress test tool allows you to simulate multiple WebSocket clients connecting to your server, subscribing to streams, and optionally connecting to user-specific WebSockets.
+
+#### Usage
+
+```bash
+# Basic usage with 10 clients
+pnpm ws-stress-test
+
+# Specify number of clients
+pnpm ws-stress-test --clients 50
+
+# Set test duration in seconds
+pnpm ws-stress-test --clients 20 --duration 60
+
+# Custom WebSocket URL
+pnpm ws-stress-test --url wss://your-websocket-server.com
+
+# Subscribe to specific streams
+pnpm ws-stress-test --streams "ethusdc@trade,ethusdc@depth,ethusdc@kline_1m"
+
+# Add delay between client connections (in ms)
+pnpm ws-stress-test --delay 200
+
+# Connect to user WebSockets with wallet addresses from a file
+plea
+```
+
+#### User WebSocket Testing
+
+To test user-specific WebSockets, create a text file with one wallet address per line:
+
+```
+0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC
+```
+
+Then run the stress test with the `--users` flag:
+
+```bash
+pnpm ws-stress-test --users ./user-addresses.txt --clients 10
+```
+
+The stress test will cycle through the addresses if there are more clients than addresses.
+
+### 📊 Metrics Dashboard
+
+The metrics dashboard provides real-time monitoring of system performance, database record counts, and WebSocket connection statistics.
+
+#### Usage
+
+```bash
+# Start the metrics dashboard
+pnpm metrics:dashboard
+
+# Watch metrics in real-time (requires ENABLE_SYSTEM_MONITOR=true)
+pnpm metrics:watch
+
+# Check current metrics
+pnpm metrics
+```
+
+#### Configuring System Monitoring
+
+The system monitor is built into the main Ponder process and can be configured with environment variables:
+
+```bash
+# Enable system monitoring (disabled by default)
+ENABLE_SYSTEM_MONITOR=true pnpm dev
+
+# Enable with custom interval (30 seconds by default)
+ENABLE_SYSTEM_MONITOR=true SYSTEM_MONITOR_INTERVAL=30 pnpm dev
+```
+
+**Environment Variables:**
+- `ENABLE_SYSTEM_MONITOR`: Set to `true` to enable metrics collection (default: `false`)
+- `SYSTEM_MONITOR_INTERVAL`: Collection interval in seconds (default: `30`)
+
+**Recommended intervals (use multiples of 10 for best synchronization):**
+- **Development/Testing**: 10, 20, or 30 seconds for responsive monitoring
+- **Production**: 30, 60, or 120 seconds to reduce overhead
+- **Avoid**: Non-multiples of 10 (e.g., 15, 25, 45) as they cause timing misalignment
+
+When enabled, metrics are automatically logged to `logs/system-metrics.log` and can be viewed with the dashboard.
+
+> **Note**: For accurate WebSocket metrics, use the integrated monitoring (`ENABLE_SYSTEM_MONITOR=true pnpm dev`) rather than running the system monitor separately (`pnpm monitor`), since WebSocket connections are only visible within the same process.
+
+#### Dashboard Features
+
+- System metrics: CPU usage, memory usage, network connections
+- Database statistics: Record counts for orders, trades, balances
+- WebSocket metrics: Active connections, messages per second, subscription types
+- Performance trends: Memory growth, message throughput
+
+#### Monitoring During Stress Tests
+
+For optimal monitoring during stress tests, run these commands in separate terminals:
+
+```bash
+# Terminal 1: Start the indexer with monitoring enabled
+ENABLE_SYSTEM_MONITOR=true SYSTEM_MONITOR_INTERVAL=10 pnpm dev
+
+# Terminal 2: Launch the metrics dashboard
+pnpm metrics:dashboard
+
+# Terminal 3: Run the stress test
+pnpm ws-stress-test --clients 50 --duration 300 --users ./user-addresses.txt
+```
+
+This setup allows you to observe how the system performs under load and identify potential bottlenecks or performance issues.
+
+### 🔄 Combining Tools for Development
+
+During development, you can use these tools together to:
+
+1. Run the indexer with monitoring: `ENABLE_SYSTEM_MONITOR=true pnpm dev`
+2. Launch the dashboard with `pnpm metrics:dashboard`
+3. Run stress tests with `pnpm ws-stress-test`
+4. Use the WebSocket client for manual testing with `pnpm ws-client`
+
+This workflow helps ensure your WebSocket server can handle the expected load and provides visibility into system performance.
+
 **User streams**  
 Open a second socket to `ws://localhost:42080/ws/<walletAddress>` to receive:  
 * `executionReport` – order status & fills  

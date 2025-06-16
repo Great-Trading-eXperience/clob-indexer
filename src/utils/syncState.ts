@@ -1,36 +1,33 @@
+import dotenv from "dotenv";
+import { getCachedData } from "./redis";
+
+dotenv.config();
+
 const ENABLED_WEBSOCKET = process.env.ENABLE_WEBSOCKET === 'true';
 
-export async function isInSyncState(context: any, eventBlockNumber: number, eventTimestamp: number): Promise<boolean> {
+
+export const shouldEnableWebSocket = async (currentBlockNumber: number): Promise<boolean> => {
     try {
-        // const latestBlockNumber = await context.network.getBlockNumber();
-        // const currentTime = Math.floor(Date.now() / 1000);
-        
-        // const blocksBehind = latestBlockNumber - eventBlockNumber;
-        // const timeBehind = currentTime - eventTimestamp;
-        // const isSyncedByBlocks = blocksBehind <= 5;
-        // const isSyncedByTime = timeBehind <= 300; 
-        
-        // return isSyncedByBlocks || isSyncedByTime;
-        return true;
+        const enabledWebSocket = process.env.ENABLE_WEBSOCKET === 'true' || process.env.ENABLED_WEBSOCKET === 'true';
+        if (!enabledWebSocket) return false;
+
+        const enabledBlockNumber = await getCachedData<number>('websocket:enable:block');
+        if (!enabledBlockNumber) return true;
+
+        return currentBlockNumber >= enabledBlockNumber;
     } catch (error) {
-        console.log("Error checking sync state:", error);
+        console.error(`Error checking if websocket should be enabled:`, error);
         return false;
     }
-}
+};
 
-/**
- * Wrapper function to conditionally execute WebSocket operations only when in sync
- */
 export async function executeIfInSync(
-    context: any, 
-    eventBlockNumber: number, 
-    eventTimestamp: number, 
+    eventBlockNumber: number,
     websocketOperations: () => Promise<void>
 ): Promise<void> {
     if (!ENABLED_WEBSOCKET) return;
-    
-    const isInSync = await isInSyncState(context, eventBlockNumber, eventTimestamp);
-    if (isInSync) {
-        await websocketOperations();
-    }
+
+    const shouldEnableWs = await shouldEnableWebSocket(eventBlockNumber);
+    if (!shouldEnableWs) return;
+    await websocketOperations();
 }
