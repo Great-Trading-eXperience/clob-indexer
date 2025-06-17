@@ -1,4 +1,4 @@
-import {ponder} from "ponder:registry";
+import { ponder } from "ponder:registry";
 import * as orderBookHandler from "./handlers/orderBookHandler";
 import * as balanceManagerHandler from "./handlers/balanceManagerHandler";
 import * as poolManagerHandler from "./handlers/poolManagerHandler";

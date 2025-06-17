@@ -19,6 +19,7 @@ export const pools = onchainTable(
 	(table: any) => ({
 		coinIdx: index().on(table.coin),
 		chainIdIdx: index().on(table.chainId),
+		orderBookIdx: index().on(table.orderBook),
 	})
 );
 
@@ -46,7 +47,7 @@ export const orders = onchainTable(
 		sideIdx: index().on(table.side),
 		statusIdx: index().on(table.status),
 		poolIdx: index().on(table.poolId),
-		chainIdIdx: index().on(table.chainId),		
+		chainIdIdx: index().on(table.chainId),
 		orderIdChainIdx: index().on(table.orderId, table.chainId),
 		poolChainStatusIdx: index().on(table.poolId, table.chainId, table.status),
 		poolChainSideIdx: index().on(table.poolId, table.chainId, table.side),
@@ -92,10 +93,10 @@ export const orderBookDepth = onchainTable(
 		poolSideIdx: index().on(table.poolId, table.side),
 		poolPriceIdx: index().on(table.poolId, table.price),
 		chainIdIdx: index().on(table.chainId),
-		lastUpdatedIdx: index().on(table.lastUpdated),		
+		lastUpdatedIdx: index().on(table.lastUpdated),
 		poolChainSideIdx: index().on(table.poolId, table.chainId, table.side),
 		poolChainSidePriceIdx: index().on(table.poolId, table.chainId, table.side, table.price), // Complete depth query coverage
-		quantityIdx: index().on(table.quantity), 
+		quantityIdx: index().on(table.quantity),
 	})
 );
 
@@ -114,7 +115,7 @@ export const orderBookDepthSnapshots = onchainTable(
 		poolTimeIdx: index().on(table.poolId, table.timestamp),
 		chainIdIdx: index().on(table.chainId),
 		sequenceIdx: index().on(table.sequenceNumber),
-		poolChainTimestampIdx: index().on(table.poolId, table.chainId, table.timestamp), 
+		poolChainTimestampIdx: index().on(table.poolId, table.chainId, table.timestamp),
 	})
 );
 
@@ -307,7 +308,7 @@ export const votes = onchainTable(
 	}),
 	table => ({
 		chainIdIdx: index().on(table.chainId),
-		
+
 		// NEW: Additional indexes for vote queries
 		userIdx: index().on(table.user),
 		poolIdx: index().on(table.poolId),
@@ -329,7 +330,7 @@ export const currencies = onchainTable(
 	}),
 	table => ({
 		chainIdIdx: index().on(table.chainId),
-		addressIdx: index().on(table.address),		
+		addressIdx: index().on(table.address),
 		addressChainIdx: index().on(table.address, table.chainId),
 		symbolIdx: index().on(table.symbol),
 	})

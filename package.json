@@ -37,7 +37,10 @@
     "inquirer": "^12.6.3",
     "ts-node": "^10.9.2",
     "tsx": "^4.20.3",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "@eslint/js": "^9.28.0",
+    "prettier": "3.5.3",
+    "typescript-eslint": "^8.33.1"
   },
   "engines": {
     "node": ">=18.14"
