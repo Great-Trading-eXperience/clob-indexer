@@ -12,7 +12,6 @@ import {
     trades
 } from "ponder:schema";
 import { and, desc, eq, gte } from "ponder";
-import { orders, pools } from "ponder:schema";
 import {
 	createDepthData,
 	createOrderData,
@@ -28,6 +27,7 @@ import {
 	insertTrade,
 	ORDER_STATUS,
 	OrderSide,
+	TIME_INTERVALS,
 	updateCandlestickBuckets,
 	updateOrder,
 	updateOrderStatusAndTimestamp,
@@ -38,7 +38,8 @@ import {
 } from "@/utils";
 import { OrderMatchedEventArgs, OrderPlacedEventArgs } from "@/types";
 import { pushExecutionReport } from "@/utils/pushExecutionReport";
-import { pushDepth, pushMiniTicker, pushTrade } from "@/websocket/broadcaster";
+import {pushDepth, pushKline, pushMiniTicker, pushTrade} from "@/websocket/broadcaster";
+import {executeIfInSync} from "@/utils/syncState";
 
 dotenv.config();
 
@@ -72,6 +73,8 @@ export async function handleOrderPlaced({ event, context }: any) {
 	await insertOrderBookDepth(db, depthData);
 
     await executeIfInSync(Number(event.block.number), async () => {
+        const symbol = (await getPoolTradingPair(context, event.log.address!, chainId)).toUpperCase();
+		const id = createOrderId(chainId, args.orderId, poolAddress);
         const order = await context.db.find(orders, { id: id });
         pushExecutionReport(symbol.toLowerCase(), order.user, order, "NEW", "NEW", BigInt(0), BigInt(0), timestamp * 1000);
 
@@ -113,12 +116,21 @@ export async function handleOrderMatched({ event, context }: any) {
 	await updateCandlestickBuckets(db, chainId, poolId, price, quantity, event, args);
 
     await executeIfInSync(Number(event.block.number), async () => {
+        const symbol = (await getPoolTradingPair(context, event.log.address!, chainId)).toUpperCase();
         const symbolLower = symbol.toLowerCase();
         const txHash = event.transaction.hash;
         const price = event.args.executionPrice.toString();
         const quantity = event.args.executedQuantity.toString();
         const isBuyerMaker = !!event.args.side;
         const tradeTime = timestamp * 1000;
+        
+        const buyRow = await context.db.find(orders, {
+            id: buyOrderId
+        });
+        
+        const sellRowById = await context.db.find(orders, {
+            id: sellOrderId
+        });
 
         pushTrade(symbolLower, txHash, price, quantity, isBuyerMaker, tradeTime);
 
@@ -217,7 +229,8 @@ export async function handleOrderCancelled({ event, context }: any) {
 	await upsertOrderBookDepthOnCancel(db, chainId, hashedOrderId, event, timestamp);
 
     await executeIfInSync(Number(event.block.number), async () => {
-        const row = await context.db.find(orders, { id: id });
+        const symbol = (await getPoolTradingPair(context, event.log.address!, chainId)).toUpperCase();
+        const row = await context.db.find(orders, { id: hashedOrderId });
 
         if (!row) return;
 
@@ -268,10 +281,10 @@ export async function handleUpdateOrder({ event, context }: any) {
 			timestamp,
 			false
 		);
-	});
-
+	}
     await executeIfInSync(Number(event.block.number), async () => {
-        const row = await context.db.find(orders, { id: id });
+        const symbol = (await getPoolTradingPair(context, event.log.address!, chainId)).toUpperCase();
+        const row = await context.db.find(orders, { id: hashedOrderId });
 
         if (!row) return;
 

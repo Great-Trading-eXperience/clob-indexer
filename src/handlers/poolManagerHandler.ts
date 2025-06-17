@@ -1,14 +1,10 @@
-import { currencies, pools } from "ponder:schema";
-import { ERC20ABI } from "../../abis/ERC20";
-import { Address, getAddress } from "viem";
 import { createCurrencyId, createPoolId } from "@/utils";
 import dotenv from "dotenv";
 import { currencies, pools } from "ponder:schema";
 import { Address, getAddress } from "viem";
 import { ERC20ABI } from "../../abis/ERC20";
-import { createCurrencyId, createPoolId } from "../utils/hash";
 import { createPoolCacheKey, setCachedData } from "../utils/redis";
-import { executeIfInSync, shouldEnableWebSocket } from "../utils/syncState";
+import { executeIfInSync } from "../utils/syncState";
 import { pushMiniTicker } from "../websocket/broadcaster";
 
 dotenv.config();
