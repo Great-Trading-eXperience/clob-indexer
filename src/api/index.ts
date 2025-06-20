@@ -15,11 +15,43 @@ import schema, {
 	pools,
 	thirtyMinuteBuckets,
 } from "ponder:schema";
-import { createPublicClient, http } from "viem";
+import { createPublicClient, http, defineChain } from "viem";
 import { mainnet, sepolia, goerli, arbitrum, optimism, polygon, base } from "viem/chains";
 import { setCachedData } from "../utils/redis";
 import { systemMonitor } from "../utils/systemMonitor";
 import { bootstrapGateway } from "../websocket/websocket-server";
+
+export const rise = defineChain({
+	id: 11155931,
+	name: 'RISE Testnet',
+	nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+	rpcUrls: {
+		default: {
+			http: ['https://testnet.riselabs.xyz'],
+			webSocket: ['wss://testnet.riselabs.xyz/ws']
+		},
+	},
+	blockExplorers: {
+		default: {
+			name: 'RISE Explorer',
+			url: 'https://testnet.explorer.riselabs.xyz',
+		},
+	},
+	contracts: {
+		multicall3: {
+			address: '0x4200000000000000000000000000000000000013',  // Using standard L2 multicall address
+			blockCreated: 0,
+		},
+		l2StandardBridge: {
+			address: '0x4200000000000000000000000000000000000010',
+		},
+		l2CrossDomainMessenger: {
+			address: '0x4200000000000000000000000000000000000007',
+		},
+	},
+	testnet: true
+})
+
 
 dotenv.config();
 
@@ -765,6 +797,7 @@ async function getCurrentBlockNumber(): Promise<number> {
     const networkName = process.env.NETWORK?.toLowerCase() || 'mainnet';
 
     const chainMap: Record<string, any> = {
+      'rise': rise,
       'mainnet': mainnet,
       'sepolia': sepolia,
       'goerli': goerli,
